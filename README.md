@@ -16,10 +16,26 @@ Just open `index.html` in a browser. No server, no build step, no dependencies.
    1 base Vocation for its Aspect, and every *other* ability sharing its Category adds +1 bonus. Matches
    the two worked examples from the call (2 Combat abilities → 2 Flow Vocations; 4 Utility abilities →
    4 Vocations each for Cunning/Spirit/Desire/Tenacity).
-3. **Confluence Board (simplified)** — click a Vocation, then click an empty node to place it. Board
-   is split into three "thirds" with node counts sized off Category counts, just enough to see the
-   shape-changes-with-your-choices idea. Real connectivity/rotation/Rune Words are intentionally not
-   built yet.
+3. **Confluence Board (simplified)** — select a Vocation, then place it on the pulsing "next
+   available" node. Boards fill in sequence (a stand-in for the real snake-path mechanic) rather than
+   anywhere you like, and placed nodes within a third get a connecting line. Board sizing per third is
+   still just illustrative (sum of the two relevant Category counts). Real multi-board
+   connectivity/rotation/Rune Words are intentionally not built yet — "Undo last placement" is the
+   escape hatch instead of free node removal.
+
+### Design pass (2026-09-14)
+
+A few things were added specifically to make the *mechanic* readable, not just the data:
+- **Category fill meters** at the top of the builder panel, so investing 4 abilities into one Category
+  is visibly filling a bar, not just incrementing a number.
+- **Boost flash** — when a new ability bumps other Vocations in its Category, those rows briefly
+  highlight, so the retroactive-synergy moment is visible in the moment it happens.
+- **Hover-linking** — hovering an ability card highlights the Vocation row(s) it produced, and vice
+  versa isn't built (rows aren't hoverable back) but the ability→Vocation causality is traceable.
+- **Aspect chip tracker** — all 8 Aspects are always visible; used ones go greyed + struck-through
+  instead of disappearing, so "each Aspect once" is obvious at a glance.
+- **Category shape icons** (▲ Combat, ● Support, ◆ Utility) — pulls Polak's own Figma shape language
+  (arrow/circle/diamond) into the prototype instead of using generic UI.
 
 ## Editing the data (for Polak — no code experience needed beyond this)
 
