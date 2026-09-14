@@ -1,12 +1,15 @@
 # Shimmer — Character Generation Prototype (v0)
 
-Validates the ability → Vocation → Confluence Board generation logic from the Shimmer design doc
-(`Game Dev Brain/Shimmer/character_system_design.md` in the vault). Nothing else — no items, no
-FTL map, no combat.
+Live: https://charlieamat.github.io/shimmer/
+
+Validates the ability → Vocation → Confluence Board generation logic behind Shimmer's character
+creation. Nothing else — no items, no FTL map, no combat. Full writeup lives in the app itself under
+the **Design Notes** tab.
 
 ## Run it
 
-Just open `index.html` in a browser. No server, no build step, no dependencies.
+Open the live link above, or open `index.html` locally in a browser. No server, no build step, no
+dependencies either way.
 
 ## What it does
 
@@ -50,7 +53,7 @@ Everything content-related lives in one clearly marked block at the top of the `
 
 Edit those, save, refresh the page. Nothing below that block needs to change for content edits.
 
-## What's deliberately NOT here (see design doc §5 and §7)
+## What's deliberately NOT here (see the Design Notes tab's "Unresolved" and "This Prototype's Scope" sections)
 
 - Potential-pair picker / combination matrix
 - Real board connectivity, rotation, multi-board snaking, Rune Words

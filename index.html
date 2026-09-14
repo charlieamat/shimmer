@@ -212,17 +212,49 @@
 
   .footer-note { margin-top: 20px; color: var(--muted); font-size: 11px; border-top: 1px solid var(--border); padding-top: 12px; }
   .hint { color: var(--muted); font-size: 11px; margin-top: 8px; }
+
+  /* --- Tabs --- */
+  .tabs { display: flex; gap: 4px; margin-bottom: 18px; border-bottom: 1px solid var(--border); }
+  .tab-btn {
+    background: transparent;
+    color: var(--muted);
+    border: none;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .tab-btn.active { color: var(--text); border-bottom-color: var(--accent); }
+  .tab-btn:hover:not(.active) { color: var(--text); }
+  [hidden] { display: none !important; }
+
+  /* --- Design Notes doc --- */
+  .doc { max-width: 860px; }
+  .doc .panel { margin-bottom: 16px; }
+  .doc h3 { font-size: 15px; margin: 0 0 10px; color: var(--accent); }
+  .doc h4 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin: 14px 0 6px; }
+  .doc p { font-size: 13px; margin: 0 0 10px; }
+  .doc ul { font-size: 13px; margin: 0 0 10px; padding-left: 20px; }
+  .doc li { margin-bottom: 6px; }
+  .doc code { background: var(--panel-2); border: 1px solid var(--border); border-radius: 3px; padding: 1px 5px; font-size: 12px; }
 </style>
 </head>
 <body>
 
 <h1>Shimmer — Character Generation Prototype (v0)</h1>
 <div class="sub">
-  Validates the ability → Vocation → Confluence Board generation logic from
-  <code>character_system_design.md</code>. Scope is deliberately narrow: one hardcoded Potential pair,
-  a single triangular board, no Vestiges/items, no FTL meta-map. See the "Edit here" block in the JS
-  source to change Aspects, Potentials, or word banks — no build step, just edit and reload.
+  Validates the ability → Vocation → Confluence Board generation logic behind Shimmer's character
+  creation. Scope is deliberately narrow: one hardcoded Potential pair, a single triangular board, no
+  Vestiges/items, no FTL meta-map. Full writeup is under the <b>Design Notes</b> tab.
 </div>
+
+<div class="tabs">
+  <button class="tab-btn active" id="tab-btn-app">Prototype</button>
+  <button class="tab-btn" id="tab-btn-design">Design Notes</button>
+</div>
+
+<div id="tab-app">
 
 <div class="potentials">
   Potentials: <b id="potential-display"></b>
@@ -274,10 +306,132 @@
 </div>
 
 <div class="footer-note">
-  Shimmer project · Game Dev Brain · this file is the whole app — open it in any browser, no server or
-  build step needed. Data model (Potentials, Aspects, word banks, per-category cap) lives at the top of
-  the &lt;script&gt; block below, clearly marked, so it can be edited directly without touching the logic.
+  This page is the whole app — open <code>index.html</code> in any browser, no server or build step
+  needed. Data model (Potentials, Aspects, word banks, per-category cap) lives at the top of the
+  &lt;script&gt; block, clearly marked, so it can be edited directly without touching the logic.
 </div>
+
+</div><!-- /tab-app -->
+
+<div id="tab-design" class="doc" hidden>
+
+  <div class="panel">
+    <h3>Pitch</h3>
+    <p>Single-entity roguelite where you generate a fully custom character through a series of
+    conceptual choices, then progress that character across runs. Long-term ambition is an MMO
+    roguelike/RPG; the actual starting scope is a much simpler single-player <b>auto-battler</b> to
+    prove out the character-generation and progression systems first.</p>
+  </div>
+
+  <div class="panel">
+    <h3>Setting / Lore (light, expand later)</h3>
+    <ul>
+      <li>You play as <b>a Blank</b> — an entity that does not exist in all realities. Everyone else
+      exists as different versions of themselves across infinite realities; you are unique and
+      singular, and can traverse realities without ever meeting yourself.</li>
+      <li>You choose two <b>Potentials</b> (thematic power sources, e.g. Earth + Honor) — this is what
+      "un-blanks" you for a run.</li>
+      <li><b>The Shimmer</b> — a pursuing boundary/wall (FTL's rebel fleet, functionally). Getting
+      caught by it shunts you back to your blank, non-existent state — i.e. run failure.</li>
+      <li>Meta-structure is FTL-like: a branching node map, jump forward, can backtrack, but the
+      Shimmer forces overall forward progress.</li>
+    </ul>
+  </div>
+
+  <div class="panel">
+    <h3>Character Creation Flow</h3>
+
+    <h4>Step 1 — Pick two Potentials</h4>
+    <p>Thematic pair (e.g. Earth + Honor) that seeds everything downstream. Not every Potential
+    combination will be supported at launch — deliberately scoped down; UI shows only valid combos for
+    what's been built.</p>
+
+    <h4>Step 2 — Craft 8 Abilities</h4>
+    <p>Exactly 8 abilities, each defined by three choices:</p>
+    <ul>
+      <li><b>Aspect</b> (flavor/power source): one of 8 — Cunning, Desire, Flow, Impetus, Presence,
+      Spirit, Tenacity, Will. Each Aspect can be used once — picking one for an ability removes it from
+      the pool for the rest of the build.</li>
+      <li><b>Category</b>: Combat (direct damage), Support (buffs allies / hinders enemies), or Utility
+      (buffs / hard CC). Max 4 of your 8 abilities can share a Category.</li>
+      <li><b>Delivery type</b>: Single Target vs. Area Effect. Visually: shape = Category (arrow =
+      Combat, circle = Support, diamond = Utility), orientation = targeting.</li>
+    </ul>
+    <p>Locking in a choice auto-generates the ability's name and preview. During a run, abilities are
+    manually triggered on cooldown on top of passive auto-battling.</p>
+
+    <h4>Step 3 — Vocations (talent resource generation)</h4>
+    <p>Every ability crafted also generates one <b>Vocation</b> (talent) — not slotted immediately,
+    banked as a resource for the Confluence Board. A Vocation is derived from: Potential 1 + Potential
+    2 + Aspect + delivery type.</p>
+    <p><b>Synergy scaling:</b> the more abilities you stack into one Category, the more bonus Vocations
+    you generate for the Aspects used in that Category — not just 1-per-ability. Heavy investment in
+    one Category means a deep Vocation pool for that Category's Aspects, at the cost of fewer Vocations
+    elsewhere.</p>
+
+    <h4>Step 4 — Confluence Board (talent board)</h4>
+    <p>A Diablo 4 Paragon Board homage: a node board you snake a path through, placing generated
+    Vocations as you go.</p>
+    <ul>
+      <li>Starting board is triangular, divided into thirds — each third weighted by two of the three
+      Categories, shaped by how many abilities you put into each.</li>
+      <li>Reaching the board's edge lets you attach and rotate another board ("Confluence Page") to
+      keep snaking.</li>
+      <li>New Confluence Pages are earned via <b>Rune Words</b> — words/knowledge collected while
+      adventuring across realities. Stronger Rune Words → boards that reach an edge faster with fewer
+      nodes. Weaker ones → more nodes, more incremental power.</li>
+      <li>Making a board connection unlocks a Vestige (item) slot.</li>
+    </ul>
+
+    <h4>Step 5 — Vestiges (items)</h4>
+    <ul>
+      <li>No traditional gear slots — simplified slot model.</li>
+      <li>Base board always grants 1 Vestige slot; each connection adds another.</li>
+      <li>Stat scaling is threshold-based, not flat %: e.g. 30 rating = +1 hit, 60 = +2 hits, thresholds
+      grow from there.</li>
+      <li>You don't find finished items — you find <b>Orbs</b> with set stats, and socket them onto a
+      Vestige to raise its level, up to a cap gated by character progression.</li>
+      <li>Vestiges are fully re-craftable — no regret cost for leveling an item for a build you later
+      drop.</li>
+    </ul>
+  </div>
+
+  <div class="panel">
+    <h3>Progression / Loadouts</h3>
+    <ul>
+      <li>Multiple loadouts (different Potential pairs), switched at a home base between runs.</li>
+      <li>Speculative leveling model: level cap 60 total, split 30/30 across your two active
+      Potentials. Progress on a shared Potential carries over across loadouts that reuse it.</li>
+      <li>Combinatorics are intentionally large — different player goals (maximize distinct Vocations
+      used vs. minmax efficiency) are expected to emerge organically rather than every combination
+      being meaningfully distinct by design.</li>
+    </ul>
+  </div>
+
+  <div class="panel">
+    <h3>Explicitly Unresolved / Out of Scope for v1</h3>
+    <ul>
+      <li>Full Potential combination matrix (only a subset buildable initially).</li>
+      <li>Exact Aspect/Category/Type → Vocation generation formula (illustrative, not final).</li>
+      <li>Confluence Board node layout details, rotation mechanics, exact Rune-Word-to-board-size
+      mapping.</li>
+      <li>Full item/Orb scaling system.</li>
+      <li>Leveling system (level cap, XP, etc.).</li>
+      <li>Vestige slot cap — placeholder number only.</li>
+      <li>Deeper lore beyond Blank / Shimmer / Potentials premise.</li>
+    </ul>
+  </div>
+
+  <div class="panel">
+    <h3>This Prototype's Scope</h3>
+    <p>Hardcodes 1 Potential pair, all 8 Aspects, the 3 Categories, and a minimal Confluence Board
+    (single triangular board, no Rune Words/multi-board) — enough to click through ability creation →
+    Vocation generation → placing Vocations on a board. Vestiges/items and the FTL meta-map are
+    intentionally skipped; they're separable systems. This validates the generation logic, which is the
+    actual novel part of the design, before investing in content tooling or a real engine.</p>
+  </div>
+
+</div><!-- /tab-design -->
 
 <script>
 /* ======================================================================
@@ -285,7 +439,7 @@
    ====================================================================== */
 
 // v0 hardcodes a single Potential pair. Later this becomes a real picker
-// (Step 1 of character_system_design.md) with a combination matrix.
+// (see Design Notes tab, Step 1) with a full combination matrix.
 const POTENTIALS = ["Earth", "Honor"];
 
 // Exactly 8 Aspects, in display order. Each can be used once per character.
@@ -624,6 +778,23 @@ document.getElementById("undo-btn").onclick = () => {
   placementOrder.pop();
   renderAll();
 };
+
+/* ---------- Tabs ---------- */
+const tabAppBtn = document.getElementById("tab-btn-app");
+const tabDesignBtn = document.getElementById("tab-btn-design");
+const tabApp = document.getElementById("tab-app");
+const tabDesign = document.getElementById("tab-design");
+
+function showTab(name) {
+  const showApp = name === "app";
+  tabApp.hidden = !showApp;
+  tabDesign.hidden = showApp;
+  tabAppBtn.classList.toggle("active", showApp);
+  tabDesignBtn.classList.toggle("active", !showApp);
+  if (showApp) requestAnimationFrame(renderBoard); // recompute connector-line geometry once visible
+}
+tabAppBtn.onclick = () => showTab("app");
+tabDesignBtn.onclick = () => showTab("design");
 
 renderAll();
 </script>
