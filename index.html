@@ -166,33 +166,24 @@
     font-size: 11px;
   }
 
-  .board-third { margin-bottom: 16px; }
-  .board-third .label { font-size: 11px; color: var(--muted); margin-bottom: 6px; }
-  .node-grid-wrap { position: relative; }
-  .node-grid { display: flex; flex-wrap: wrap; gap: 10px; position: relative; z-index: 1; }
-  .connector-svg { position: absolute; top: 0; left: 0; pointer-events: none; z-index: 0; }
-  .node {
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
-    border: 2px solid var(--border);
-    background: var(--panel-2);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 10px;
-    font-weight: 700;
-    color: var(--muted);
-    text-align: center;
-    line-height: 1.1;
+  /* --- Triangle RunePage board (center + 3 paths) --- */
+  .board-svg circle {
+    fill: var(--panel-2);
+    stroke: var(--border);
+    stroke-width: 2;
+    transition: fill 0.2s ease, stroke 0.2s ease, stroke-width 0.2s ease;
   }
-  .node.filled { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 30%, var(--panel-2)); color: var(--text); }
-  .node.available { border-color: var(--accent); cursor: pointer; animation: pulse 1.4s ease-in-out infinite; }
-  .node.locked { opacity: 0.35; }
-  @keyframes pulse {
-    0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent); }
-    50% { box-shadow: 0 0 0 5px transparent; }
+  .board-svg text { fill: var(--text); font-size: 9px; font-weight: 700; }
+  .board-node.filled circle { fill: color-mix(in srgb, var(--accent) 30%, var(--panel-2)); stroke: var(--accent); }
+  .board-node.available circle { stroke: var(--accent); animation: pulse-node 1.4s ease-in-out infinite; }
+  .board-node.locked-vocation circle { stroke: var(--muted); stroke-dasharray: 3 2; opacity: 0.7; }
+  .board-node.regular-node circle { opacity: 0.5; }
+  .board-node.border-node circle { opacity: 0.35; stroke-dasharray: 1 3; }
+  @keyframes pulse-node {
+    0%, 100% { stroke-width: 2; }
+    50% { stroke-width: 5; }
   }
+  .board-legend { display: flex; gap: 14px; justify-content: center; margin-top: 10px; font-size: 11px; color: var(--muted); flex-wrap: wrap; }
 
   .pool-item {
     display: inline-flex;
@@ -245,8 +236,9 @@
 <h1>Shimmer — Character Generation Prototype (v0)</h1>
 <div class="sub">
   Validates the ability → Vocation → Confluence Board generation logic behind Shimmer's character
-  creation. Scope is deliberately narrow: one hardcoded Potential pair, a single triangular board, no
-  Vestiges/items, no FTL meta-map. Full writeup is under the <b>Design Notes</b> tab.
+  creation. Scope is deliberately narrow: one hardcoded Potential pair, a single triangular board (3
+  paths from a shared center), no Vestiges/items, no FTL meta-map. Full writeup is under the
+  <b>Design Notes</b> tab.
 </div>
 
 <div class="tabs">
@@ -294,9 +286,10 @@
   <div class="panel">
     <h2>3. Confluence Board (simplified)</h2>
     <div class="hint" style="margin-bottom:10px;">
-      Select a Vocation, then place it on the <b>pulsing</b> node — boards fill in order, like a
-      snaking path, not anywhere you like. Connected nodes get a line. Real multi-board
-      connectivity/rotation/Rune Words are still out of scope for v0.
+      Select a Vocation, then place it on a <b>pulsing ★</b> node. Only the center node and each
+      path's 4th node are real Vocation nodes (per Polak's spec) — everything else is a passive
+      node you snake past. Real multi-board connectivity/rotation/Rune Words are still out of
+      scope for v0.
     </div>
     <div id="pool-picker" style="margin-bottom:10px;"></div>
     <button class="secondary" id="undo-btn" style="margin-bottom:12px;">Undo last placement</button>
@@ -354,7 +347,9 @@
       the pool for the rest of the build.</li>
       <li><b>Category</b>: Combat (direct damage), Support (buffs allies / hinders enemies), or Utility
       (buffs / hard CC). Max 4 of your 8 abilities can share a Category.</li>
-      <li><b>Delivery type</b>: Single Target vs. Area Effect. Visually: shape = Category (arrow =
+      <li><b>Delivery type</b>: 4 options per Category, not shared across Categories — Combat: Instant,
+      Area of Effect, Cooldown, Multi Select. Support: Augment, Bolster, Exploit, Hinder. Utility:
+      Defensive, Offensive, Resource Manipulation, Crowd Control. Visually: shape = Category (arrow =
       Combat, circle = Support, diamond = Utility), orientation = targeting.</li>
     </ul>
     <p>Locking in a choice auto-generates the ability's name and preview. During a run, abilities are
@@ -363,7 +358,9 @@
     <h4>Step 3 — Vocations (talent resource generation)</h4>
     <p>Every ability crafted also generates one <b>Vocation</b> (talent) — not slotted immediately,
     banked as a resource for the Confluence Board. A Vocation is derived from: Potential 1 + Potential
-    2 + Aspect + delivery type.</p>
+    2 + Aspect + delivery type — so a bonus Vocation (see synergy below) takes its delivery type from
+    whichever other ability in the Category triggered it, which is what makes each one distinct rather
+    than an identical duplicate.</p>
     <p><b>Synergy scaling:</b> the more abilities you stack into one Category, the more bonus Vocations
     you generate for the Aspects used in that Category — not just 1-per-ability. Heavy investment in
     one Category means a deep Vocation pool for that Category's Aspects, at the cost of fewer Vocations
@@ -373,8 +370,13 @@
     <p>A Diablo 4 Paragon Board homage: a node board you snake a path through, placing generated
     Vocations as you go.</p>
     <ul>
-      <li>Starting board is triangular, divided into thirds — each third weighted by two of the three
-      Categories, shaped by how many abilities you put into each.</li>
+      <li>Starting board is 3 paths radiating from a shared center, tracing an invisible equilateral
+      triangle — each path weighted by two of the three Categories (Combat+Utility, Combat+Support,
+      Support+Utility), shaped by how many abilities you put into each.</li>
+      <li>The center node is a shared Vocation node; each path's 4th node is also a Vocation node.
+      Everything else is a passive node you snake past. (Polak also described 1-2 extra nodes "over" at
+      the border of each path — shown in the prototype as regular nodes, pending a confirm on exactly
+      what that means.)</li>
       <li>Reaching the board's edge lets you attach and rotate another board ("Confluence Page") to
       keep snaking.</li>
       <li>New Confluence Pages are earned via <b>Rune Words</b> — words/knowledge collected while
@@ -425,10 +427,11 @@
   <div class="panel">
     <h3>This Prototype's Scope</h3>
     <p>Hardcodes 1 Potential pair, all 8 Aspects, the 3 Categories, and a minimal Confluence Board
-    (single triangular board, no Rune Words/multi-board) — enough to click through ability creation →
-    Vocation generation → placing Vocations on a board. Vestiges/items and the FTL meta-map are
-    intentionally skipped; they're separable systems. This validates the generation logic, which is the
-    actual novel part of the design, before investing in content tooling or a real engine.</p>
+    (single triangular board — center + 3 paths, no Rune Words/multi-board) — enough to click through
+    ability creation → Vocation generation → placing Vocations on the board's 4 Vocation nodes.
+    Vestiges/items and the FTL meta-map are intentionally skipped; they're separable systems. This
+    validates the generation logic, which is the actual novel part of the design, before investing in
+    content tooling or a real engine.</p>
   </div>
 
 </div><!-- /tab-design -->
@@ -451,7 +454,12 @@ const MAX_PER_CATEGORY = 4;
 // Shape language borrowed from Polak's own Figma: arrow=Combat, circle=Support, diamond=Utility.
 const CATEGORY_ICON = { Combat: "▲", Support: "●", Utility: "◆" };
 
-const DELIVERY_TYPES = ["Single Target", "Area Effect"];
+// Per Polak's worked-example doc: exactly 4 delivery types per Category, not shared across them.
+const DELIVERY_TYPES = {
+  Combat: ["Instant", "Area of Effect", "Cooldown", "Multi Select"],
+  Support: ["Augment", "Bolster", "Exploit", "Hinder"],
+  Utility: ["Defensive", "Offensive", "Resource Manipulation", "Crowd Control"],
+};
 
 // Word banks for the auto-generated ability name. Purely cosmetic — edit freely.
 const ASPECT_WORDS = {
@@ -475,8 +483,8 @@ const CATEGORY_WORDS = {
 let abilities = [];          // {aspect, category, type, name}
 let pendingAspect = null;    // chip currently selected for the next ability
 let selectedVocationKey = null;   // Aspect currently selected for board placement
-let placementOrder = [];     // ordered list of {nodeId, aspect}, in placement order
-let prevTotals = {};         // aspect -> total, from the previous render (for boost-flash detection)
+let placementOrder = [];     // ordered list of {nodeId, vocationKey, aspect}, in placement order
+let prevVocationKeys = new Set(); // vocation keys from the previous render (for boost-flash detection)
 
 function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 function catClass(c) { return c.toLowerCase(); }
@@ -488,17 +496,36 @@ function generateAbilityName(aspect, category) {
 function usedAspects() { return new Set(abilities.map(a => a.aspect)); }
 function categoryCount(category) { return abilities.filter(a => a.category === category).length; }
 
+// Each ability generates 1 base Vocation (its own delivery type) plus 1 bonus Vocation for every
+// OTHER ability sharing its Category — and per Polak's feedback, each bonus Vocation is genuinely
+// distinct: it borrows the delivery type from the *other* ability that triggered it, not a copy of
+// the original. Total count per ability still equals categoryCount(a.category), matching the
+// confirmed formula (base 1 + bonus(count-1) = count) — only the identity of each one changed.
 function computeVocations() {
-  return abilities.map(a => {
-    const count = categoryCount(a.category);
-    const base = 1;
-    const bonus = count - 1; // every OTHER ability in the same category grants +1
-    return { aspect: a.aspect, category: a.category, base, bonus, total: base + bonus };
+  const vocs = [];
+  abilities.forEach((a, ai) => {
+    vocs.push({
+      key: `${a.aspect}::base::${ai}`,
+      aspect: a.aspect,
+      category: a.category,
+      deliveryType: a.type,
+      abilityIndex: ai,
+      kind: "base",
+    });
+    abilities.forEach((b, bi) => {
+      if (bi === ai || b.category !== a.category) return;
+      vocs.push({
+        key: `${a.aspect}::bonus::${ai}::${bi}`,
+        aspect: a.aspect,
+        category: a.category,
+        deliveryType: b.type,
+        abilityIndex: ai,
+        kind: "bonus",
+        viaAbility: b.name,
+      });
+    });
   });
-}
-
-function placedCountFor(aspect) {
-  return placementOrder.filter(p => p.aspect === aspect).length;
+  return vocs;
 }
 
 /* ---------- Category fill meters ---------- */
@@ -547,16 +574,18 @@ function renderBuilder() {
     return;
   }
 
+  const startCategory = CATEGORIES.find(c => categoryCount(c) < MAX_PER_CATEGORY) || CATEGORIES[0];
+
   el.innerHTML = `
     <div class="row">
       <select id="sel-category">
         ${CATEGORIES.map(c => {
           const full = categoryCount(c) >= MAX_PER_CATEGORY;
-          return `<option value="${c}" ${full ? "disabled" : ""}>${CATEGORY_ICON[c]} ${c}${full ? " (full)" : ""}</option>`;
+          return `<option value="${c}" ${full ? "disabled" : ""} ${c === startCategory ? "selected" : ""}>${CATEGORY_ICON[c]} ${c}${full ? " (full)" : ""}</option>`;
         }).join("")}
       </select>
       <select id="sel-type">
-        ${DELIVERY_TYPES.map(t => `<option value="${t}">${t}</option>`).join("")}
+        ${DELIVERY_TYPES[startCategory].map(t => `<option value="${t}">${t}</option>`).join("")}
       </select>
       <button id="add-ability-btn" ${pendingAspect ? "" : "disabled"}>
         ${pendingAspect ? `Create ${pendingAspect} Ability` : "Pick an Aspect above"}
@@ -564,10 +593,17 @@ function renderBuilder() {
     </div>
   `;
 
+  const catSelect = document.getElementById("sel-category");
+  const typeSelect = document.getElementById("sel-type");
+  // Type options are Category-specific (per Polak's worked-example doc) — repopulate on change.
+  catSelect.onchange = () => {
+    typeSelect.innerHTML = DELIVERY_TYPES[catSelect.value].map(t => `<option value="${t}">${t}</option>`).join("");
+  };
+
   document.getElementById("add-ability-btn").onclick = () => {
     if (!pendingAspect) return;
-    const category = document.getElementById("sel-category").value;
-    const type = document.getElementById("sel-type").value;
+    const category = catSelect.value;
+    const type = typeSelect.value;
     if (categoryCount(category) >= MAX_PER_CATEGORY) return;
     const name = generateAbilityName(pendingAspect, category);
     abilities.push({ aspect: pendingAspect, category, type, name });
@@ -615,32 +651,38 @@ function renderVocations() {
   const vocs = computeVocations();
   if (vocs.length === 0) {
     el.innerHTML = `<div class="empty">Craft an ability to generate its first Vocation.</div>`;
-    prevTotals = {};
+    prevVocationKeys = new Set();
     return;
   }
+  const newestAbilityIndex = abilities.length - 1;
   el.innerHTML = vocs.map(v => {
-    const boosted = prevTotals[v.aspect] !== undefined && prevTotals[v.aspect] !== v.total;
+    const isNew = prevVocationKeys.size > 0 && !prevVocationKeys.has(v.key);
+    const isOwnAbility = v.abilityIndex === newestAbilityIndex && v.kind === "base";
+    const boosted = isNew && !isOwnAbility;
+    const label = v.kind === "base"
+      ? `${v.aspect} — ${v.deliveryType}`
+      : `${v.aspect} — ${v.deliveryType}`;
+    const formula = v.kind === "base"
+      ? "base Vocation for this Ability"
+      : `+1 synergy Vocation (shared Category with "${v.viaAbility}")`;
     return `
-      <div class="vocation-row ${boosted ? "boosted" : ""}" data-aspect="${v.aspect}">
+      <div class="vocation-row ${boosted ? "boosted" : ""}" data-aspect="${v.aspect}" data-key="${v.key}">
         <div>
-          <div><span class="icon">${CATEGORY_ICON[v.category]}</span> ${POTENTIALS.join("+")} · ${v.aspect}</div>
-          <div class="formula">base ${v.base} + synergy ${v.bonus} (×${categoryCount(v.category)} in ${v.category})</div>
+          <div><span class="icon">${CATEGORY_ICON[v.category]}</span> ${POTENTIALS.join("+")} · ${label}</div>
+          <div class="formula">${formula}</div>
         </div>
-        <div class="vocation-count">${v.total}</div>
       </div>
     `;
   }).join("");
 
   // Remove the boost flash after the animation has had a moment to read.
-  if (Object.keys(prevTotals).length) {
+  if (prevVocationKeys.size) {
     setTimeout(() => {
       document.querySelectorAll(".vocation-row.boosted").forEach(r => r.classList.remove("boosted"));
     }, 900);
   }
 
-  const nextTotals = {};
-  vocs.forEach(v => { nextTotals[v.aspect] = v.total; });
-  prevTotals = nextTotals;
+  prevVocationKeys = new Set(vocs.map(v => v.key));
 }
 
 /* ---------- Pool picker ---------- */
@@ -651,107 +693,149 @@ function renderPoolPicker() {
     el.innerHTML = `<div class="empty">No Vocations to place yet.</div>`;
     return;
   }
+  const placedKeys = new Set(placementOrder.map(p => p.vocationKey));
   el.innerHTML = vocs.map(v => {
-    const remaining = v.total - placedCountFor(v.aspect);
-    const selected = selectedVocationKey === v.aspect ? "selected" : "";
-    const depleted = remaining <= 0 ? "depleted" : "";
+    const selected = selectedVocationKey === v.key ? "selected" : "";
+    const isPlaced = placedKeys.has(v.key);
+    const depleted = isPlaced ? "depleted" : "";
     return `
-      <div class="pool-item ${selected} ${depleted}" data-aspect="${v.aspect}">
-        <span class="icon">${CATEGORY_ICON[v.category]}</span> ${v.aspect} <span class="count">${remaining}</span>
+      <div class="pool-item ${selected} ${depleted}" data-key="${v.key}">
+        <span class="icon">${CATEGORY_ICON[v.category]}</span> ${v.aspect} (${v.deliveryType})
+        ${isPlaced ? `<span class="count">✓</span>` : ""}
       </div>
     `;
   }).join("");
   el.querySelectorAll(".pool-item:not(.depleted)").forEach(node => {
     node.onclick = () => {
-      const aspect = node.dataset.aspect;
-      selectedVocationKey = selectedVocationKey === aspect ? null : aspect;
+      const key = node.dataset.key;
+      selectedVocationKey = selectedVocationKey === key ? null : key;
       renderAll();
     };
   });
 }
 
-/* ---------- Confluence board ---------- */
-function thirdDefs() {
+/* ---------- Confluence board: center + 3 triangle paths ----------
+   Per Polak's board-layout spec: 3 paths radiate from a shared center, tracing an
+   invisible equilateral triangle. Center = 1 shared Vocation node. Each path's 4th node is also a
+   Vocation node. Path ends get 1-2 extra "border" nodes ("if that makes sense" — Polak's own
+   phrasing) — implemented here as 2 regular (non-Vocation) offshoot nodes, flagged as an assumption
+   pending his confirm. Only Vocation nodes are placeable; everything else is a passive/decorative
+   node you snake past, per the confirmed "Vocations only go in Vocation nodes" rule. */
+const RADIUS_STEP = 44;
+const BORDER_EXTRA = 2; // Polak said "1 or 2" -- using 2 here, flagged as an assumption
+
+function buildBoardLayout() {
   const combat = categoryCount("Combat");
   const support = categoryCount("Support");
   const utility = categoryCount("Utility");
-  return [
-    { label: "Support + Utility", key: "su", count: Math.max(3, support + utility) },
-    { label: "Support + Combat", key: "sc", count: Math.max(3, support + combat) },
-    { label: "Combat + Utility", key: "cu", count: Math.max(3, combat + utility) },
+  const paths = [
+    { key: "cu", label: "Combat + Utility", weight: combat + utility, angleDeg: -90 },
+    { key: "cs", label: "Combat + Support", weight: combat + support, angleDeg: 30 },
+    { key: "su", label: "Support + Utility", weight: support + utility, angleDeg: 150 },
   ];
+
+  const nodes = [{ id: "center", x: 0, y: 0, type: "vocation" }];
+  const edges = [];
+
+  paths.forEach(path => {
+    const mainLen = Math.max(5, path.weight); // long enough to include the 4th-node Vocation node
+    const rad = (path.angleDeg * Math.PI) / 180;
+    const dx = Math.cos(rad), dy = Math.sin(rad);
+    let prevId = "center";
+    let lastX = 0, lastY = 0;
+    for (let i = 1; i <= mainLen; i++) {
+      const id = `${path.key}-${i}`;
+      const x = dx * RADIUS_STEP * i;
+      const y = dy * RADIUS_STEP * i;
+      nodes.push({ id, x, y, type: i === 4 ? "vocation" : "regular", pathKey: path.key, posIndex: i });
+      edges.push([prevId, id]);
+      prevId = id;
+      lastX = x; lastY = y;
+    }
+    const perpRad = rad + Math.PI / 2;
+    const pdx = Math.cos(perpRad), pdy = Math.sin(perpRad);
+    let prevBorderId = prevId;
+    for (let b = 1; b <= BORDER_EXTRA; b++) {
+      const id = `${path.key}-border-${b}`;
+      const x = lastX + pdx * RADIUS_STEP * 0.55 * b;
+      const y = lastY + pdy * RADIUS_STEP * 0.55 * b;
+      nodes.push({ id, x, y, type: "regular", pathKey: path.key, isBorder: true });
+      edges.push([prevBorderId, id]);
+      prevBorderId = id;
+    }
+  });
+
+  return { nodes, edges, paths };
 }
 
 function renderBoard() {
   const el = document.getElementById("board");
-  const thirds = thirdDefs();
-  const placedMap = {}; // nodeId -> {aspect, order}
-  placementOrder.forEach((p, i) => { placedMap[p.nodeId] = { aspect: p.aspect, order: i + 1 }; });
+  const { nodes, edges, paths } = buildBoardLayout();
 
-  el.innerHTML = thirds.map(third => {
-    const nodeIds = Array.from({ length: third.count }).map((_, i) => `${third.key}-${i}`);
-    const nextAvailable = nodeIds.find(id => !placedMap[id]);
+  const placedMap = {}; // nodeId -> aspect
+  placementOrder.forEach(p => { placedMap[p.nodeId] = p.aspect; });
+  const centerFilled = !!placedMap["center"];
+
+  function isAvailable(node) {
+    if (node.type !== "vocation" || placedMap[node.id] || !selectedVocationKey) return false;
+    return node.id === "center" ? true : centerFilled;
+  }
+
+  const xs = nodes.map(n => n.x), ys = nodes.map(n => n.y);
+  const pad = 24;
+  const minX = Math.min(...xs) - pad, maxX = Math.max(...xs) + pad;
+  const minY = Math.min(...ys) - pad, maxY = Math.max(...ys) + pad;
+  const w = maxX - minX, h = maxY - minY;
+
+  const edgeLines = edges.map(([a, b]) => {
+    const na = nodes.find(n => n.id === a), nb = nodes.find(n => n.id === b);
+    return `<line x1="${na.x - minX}" y1="${na.y - minY}" x2="${nb.x - minX}" y2="${nb.y - minY}" stroke="var(--border)" stroke-width="2" />`;
+  }).join("");
+
+  const nodeShapes = nodes.map(n => {
+    const aspect = placedMap[n.id];
+    const filled = !!aspect;
+    const avail = isAvailable(n);
+    const r = n.id === "center" ? 18 : (n.type === "vocation" ? 14 : (n.isBorder ? 6 : 9));
+    let cls = "board-node";
+    if (filled) cls += " filled";
+    else if (avail) cls += " available";
+    else if (n.type === "vocation") cls += " locked-vocation";
+    else if (n.isBorder) cls += " border-node";
+    else cls += " regular-node";
+    const label = filled ? aspect.slice(0, 3) : (n.type === "vocation" ? "★" : "");
     return `
-      <div class="board-third">
-        <div class="label">${third.label} (${third.count} nodes)</div>
-        <div class="node-grid-wrap">
-          <svg class="connector-svg" data-third="${third.key}"></svg>
-          <div class="node-grid" data-third="${third.key}">
-            ${nodeIds.map(nodeId => {
-              const placed = placedMap[nodeId];
-              const isNext = nodeId === nextAvailable && selectedVocationKey;
-              const cls = placed ? "filled" : (isNext ? "available" : "locked");
-              const label = placed ? placed.aspect.slice(0, 3) : "";
-              return `<div class="node ${cls}" data-node="${nodeId}">${label}</div>`;
-            }).join("")}
-          </div>
-        </div>
-      </div>
+      <g class="${cls}" data-node="${n.id}" data-type="${n.type}">
+        <circle cx="${n.x - minX}" cy="${n.y - minY}" r="${r}" />
+        ${label ? `<text x="${n.x - minX}" y="${n.y - minY}" dy="0.32em" text-anchor="middle">${label}</text>` : ""}
+      </g>
     `;
   }).join("");
 
-  el.querySelectorAll(".node.available").forEach(node => {
-    node.onclick = () => {
-      const nodeId = node.dataset.node;
-      const vocs = computeVocations();
-      const v = vocs.find(v => v.aspect === selectedVocationKey);
-      if (!v) return;
-      if (placedCountFor(selectedVocationKey) >= v.total) return;
-      placementOrder.push({ nodeId, aspect: selectedVocationKey });
+  el.innerHTML = `
+    <svg class="board-svg" viewBox="0 0 ${w} ${h}" style="width:100%; max-width:480px; height:auto; display:block; margin:0 auto;">
+      ${edgeLines}
+      ${nodeShapes}
+    </svg>
+    <div class="board-legend">
+      ${paths.map(p => `<span>${p.label} (${p.weight} abilities)</span>`).join("")}
+    </div>
+  `;
+
+  el.querySelectorAll(".board-node.available").forEach(g => {
+    g.style.cursor = "pointer";
+    g.onclick = () => {
+      const nodeId = g.dataset.node;
+      if (!selectedVocationKey) return;
+      const alreadyPlaced = placementOrder.some(p => p.vocationKey === selectedVocationKey);
+      if (alreadyPlaced) return;
+      const voc = computeVocations().find(v => v.key === selectedVocationKey);
+      if (!voc) return;
+      placementOrder.push({ nodeId, vocationKey: selectedVocationKey, aspect: voc.aspect });
+      selectedVocationKey = null;
       renderAll();
     };
   });
-
-  // Draw connector lines between consecutively-placed nodes within each third.
-  thirds.forEach(third => {
-    drawConnectors(third.key);
-  });
-}
-
-function drawConnectors(thirdKey) {
-  const grid = document.querySelector(`.node-grid[data-third="${thirdKey}"]`);
-  const svg = document.querySelector(`.connector-svg[data-third="${thirdKey}"]`);
-  if (!grid || !svg) return;
-  const gridRect = grid.getBoundingClientRect();
-  svg.setAttribute("width", gridRect.width);
-  svg.setAttribute("height", gridRect.height);
-  svg.style.width = gridRect.width + "px";
-  svg.style.height = gridRect.height + "px";
-
-  const orderedIds = placementOrder
-    .map(p => p.nodeId)
-    .filter(id => id.startsWith(thirdKey + "-"));
-
-  const points = orderedIds.map(id => {
-    const nodeEl = grid.querySelector(`[data-node="${id}"]`);
-    if (!nodeEl) return null;
-    const r = nodeEl.getBoundingClientRect();
-    return { x: r.left - gridRect.left + r.width / 2, y: r.top - gridRect.top + r.height / 2 };
-  }).filter(Boolean);
-
-  if (points.length < 2) { svg.innerHTML = ""; return; }
-  const pointsAttr = points.map(p => `${p.x},${p.y}`).join(" ");
-  svg.innerHTML = `<polyline points="${pointsAttr}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" opacity="0.6" />`;
 }
 
 /* ---------- Orchestration ---------- */
@@ -770,7 +854,7 @@ document.getElementById("reset-btn").onclick = () => {
   pendingAspect = null;
   selectedVocationKey = null;
   placementOrder = [];
-  prevTotals = {};
+  prevVocationKeys = new Set();
   renderAll();
 };
 
