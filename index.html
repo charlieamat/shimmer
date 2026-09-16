@@ -150,6 +150,20 @@
   .tag.utility { background: color-mix(in srgb, var(--utility) 30%, var(--panel-2)); }
   .empty { color: var(--muted); font-size: 12px; font-style: italic; }
 
+  .preview-row { display: flex; gap: 8px; margin: 8px 0; }
+  .preview-box {
+    flex: 1;
+    background: var(--panel-2);
+    border: 1px dashed var(--border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 12px;
+    min-height: 34px;
+  }
+  .preview-box .preview-label { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 3px; }
+  .preview-box .preview-name { font-weight: 700; }
+  .preview-box.filled { border-style: solid; border-color: var(--accent); }
+
   .vocation-row {
     display: flex;
     justify-content: space-between;
@@ -286,12 +300,16 @@
 
     <div class="meter-row" id="category-meters"></div>
 
-    <div class="hint" style="margin-bottom:10px;">
-      Pick an Aspect below (each of the 8 can only be used once — used ones stay visible, crossed out).
+    <div id="builder"></div>
+
+    <div class="hint" id="aspect-hint" style="margin-bottom:10px;">
+      Pick an Aspect below to see how it changes the ability (each of the 8 can only be used once —
+      used ones stay visible, crossed out).
     </div>
     <div id="aspect-chips" class="aspect-chips"></div>
+    <div id="aspect-preview"></div>
 
-    <div id="builder"></div>
+    <div id="create-row"></div>
     <div id="ability-list"></div>
     <button class="secondary" id="reset-btn" style="margin-top:10px;">Reset everything</button>
   </div>
@@ -526,6 +544,28 @@ function generateAbilityName(aspect, category) {
   return `${pick(ASPECT_WORDS[aspect])} ${pick(CATEGORY_WORDS[category])}`;
 }
 
+// Deterministic (non-random) name pick, used for the live preview boxes only — so the base and
+// Aspect-variant names stay put across re-renders instead of re-rolling on every keystroke/click,
+// and only change when the underlying Category/Type/Aspect actually changes. Per Polak's feedback:
+// pick Category+Type, see a stable base preview, then cycle Aspects to see a second preview update.
+function hashStr(s) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) { h = (h * 31 + s.charCodeAt(i)) | 0; }
+  return Math.abs(h);
+}
+function pickDeterministic(arr, seed) { return arr[hashStr(seed) % arr.length]; }
+
+// Base preview: Category+Type only, no Aspect yet — stands in for something like "Hammer of
+// Justice" (a named ability defined by its Category+Type).
+function previewBaseName(category, type) {
+  return `${type} ${pickDeterministic(CATEGORY_WORDS[category], category + "::" + type)}`;
+}
+// Aspect-variant preview: same base, with an Aspect-flavored word swapped in front — stands in for
+// "HoJ + Cunning", "HoJ + Will", etc.
+function previewAspectName(aspect, category, type) {
+  return `${pickDeterministic(ASPECT_WORDS[aspect], aspect + "::" + category + "::" + type)} ${type}`;
+}
+
 function usedAspects() { return new Set(abilities.map(a => a.aspect)); }
 function categoryCount(category) { return abilities.filter(a => a.category === category).length; }
 
@@ -612,29 +652,51 @@ function renderAspectChips() {
       renderAll();
     };
   });
+
+  renderAspectPreview();
+}
+
+// Second mini preview window: updates live as the player clicks through Aspects, so they can see
+// how each one changes the ability before committing. Needs Category+Type picked first.
+function renderAspectPreview() {
+  const el = document.getElementById("aspect-preview");
+  if (!pendingCategory || !pendingType) {
+    el.innerHTML = `<div class="preview-box"><div class="preview-label">With Aspect</div><div class="empty">Pick a Category and Type first</div></div>`;
+    return;
+  }
+  if (!pendingAspect) {
+    el.innerHTML = `<div class="preview-box"><div class="preview-label">With Aspect</div><div class="empty">Click an Aspect above to preview its effect on the ability</div></div>`;
+    return;
+  }
+  const name = previewAspectName(pendingAspect, pendingCategory, pendingType);
+  el.innerHTML = `<div class="preview-box filled"><div class="preview-label">${pendingAspect}</div><div class="preview-name">${name}</div></div>`;
 }
 
 /* ---------- Ability builder ---------- */
+// Per Polak's feedback (round 4): Category+Type comes first and defines the base ability (with a
+// live preview), Aspect comes last, cycling through it updates a second preview showing how it
+// changes the ability — simulating seeing the Aspect's effect before committing. Aspect, Category,
+// and Type still don't reset each other when picked, EXCEPT Type resets if Category itself changes.
 function renderBuilder() {
   const el = document.getElementById("builder");
   document.getElementById("potential-display").textContent = POTENTIALS.join(" + ");
 
   if (abilities.length >= 8) {
     el.innerHTML = `<div class="empty">All 8 abilities crafted.</div>`;
+    document.getElementById("create-row").innerHTML = "";
     return;
   }
 
-  // Per Polak's feedback: Aspect, Category, and Type can be picked in any order — none of them
-  // reset just because another one changed, EXCEPT Type resets if Category itself changes (its
-  // options depend on Category, so a stale Type value could be invalid for the new Category). If
-  // a pending Category got filled up some other way while it was still pending, drop it.
+  // If a pending Category got filled up some other way while it was still pending, drop it.
   if (pendingCategory && categoryCount(pendingCategory) >= MAX_PER_CATEGORY) {
     pendingCategory = null;
     pendingType = null;
   }
   const typeOptions = pendingCategory ? DELIVERY_TYPES[pendingCategory] : [];
-  const canCreate = !!(pendingAspect && pendingCategory && pendingType);
-  const missing = !pendingAspect ? "Pick an Aspect" : !pendingCategory ? "Pick a Category" : !pendingType ? "Pick a Type" : null;
+
+  const basePreview = (pendingCategory && pendingType)
+    ? `<div class="preview-box filled"><div class="preview-label">Ability so far</div><div class="preview-name">${previewBaseName(pendingCategory, pendingType)}</div></div>`
+    : `<div class="preview-box"><div class="preview-label">Ability so far</div><div class="empty">Pick a Category and Type to see a preview</div></div>`;
 
   el.innerHTML = `
     <div class="row">
@@ -649,19 +711,14 @@ function renderBuilder() {
         <option value="" ${!pendingType ? "selected" : ""}>${pendingCategory ? "— choose Type —" : "— pick a Category first —"}</option>
         ${typeOptions.map(t => `<option value="${t}" ${t === pendingType ? "selected" : ""}>${t}</option>`).join("")}
       </select>
-      <button id="add-ability-btn" ${canCreate ? "" : "disabled"}>
-        ${canCreate ? `Create ${pendingAspect} Ability` : missing}
-      </button>
     </div>
-    <div class="hint" style="margin-top:6px;">
-      Pick Aspect, Category, and Type in any order you like — nothing resets until you create the
-      Ability, except Type (its options depend on Category).
+    <div class="preview-row">
+      ${basePreview}
     </div>
   `;
 
   const catSelect = document.getElementById("sel-category");
   const typeSelect = document.getElementById("sel-type");
-  const addBtn = document.getElementById("add-ability-btn");
 
   catSelect.onchange = () => {
     const newCategory = catSelect.value || null;
@@ -673,8 +730,29 @@ function renderBuilder() {
     pendingType = typeSelect.value || null;
     renderAll();
   };
+}
 
-  addBtn.onclick = () => {
+/* ---------- Create button row (below Aspect selection, per Polak's flow) ---------- */
+function renderCreateRow() {
+  const el = document.getElementById("create-row");
+  if (abilities.length >= 8) { el.innerHTML = ""; return; }
+
+  const canCreate = !!(pendingAspect && pendingCategory && pendingType);
+  const missing = !pendingCategory ? "Pick a Category" : !pendingType ? "Pick a Type" : !pendingAspect ? "Pick an Aspect" : null;
+
+  el.innerHTML = `
+    <div class="row">
+      <button id="add-ability-btn" ${canCreate ? "" : "disabled"}>
+        ${canCreate ? `Create ${pendingAspect} Ability` : missing}
+      </button>
+    </div>
+    <div class="hint" style="margin-top:2px; margin-bottom:10px;">
+      Pick Category, Type, and Aspect in any order you like — nothing resets until you create the
+      Ability, except Type (its options depend on Category).
+    </div>
+  `;
+
+  document.getElementById("add-ability-btn").onclick = () => {
     if (!canCreate) return;
     if (categoryCount(pendingCategory) >= MAX_PER_CATEGORY) return;
     const name = generateAbilityName(pendingAspect, pendingCategory);
@@ -991,8 +1069,9 @@ function renderBoard() {
 /* ---------- Orchestration ---------- */
 function renderAll() {
   renderMeters();
-  renderAspectChips();
   renderBuilder();
+  renderAspectChips();
+  renderCreateRow();
   renderAbilityList();
   renderVocations();
   renderPoolPicker();

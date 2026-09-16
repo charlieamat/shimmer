@@ -59,6 +59,21 @@ pulling one out is meant to have a consequence. Open question for Polak: does re
 placement cost anything in the real design (like the resource-cost Orb extraction on Vestiges), or
 is it meant to be free? The prototype currently treats it as free.
 
+### Feedback pass 4 (2026-09-16)
+
+Polak's follow-up on the field-order fix — a concrete, buildable UI idea:
+- **Reordered:** Category + Type now come first in the Craft Ability panel, Aspect selection moved
+  below them. Matches his stated flow: lock in the "what kind of ability" part first, then explore
+  Aspects against it.
+- **Added:** two live preview boxes. The first shows a stable "ability so far" name generated from
+  Category+Type alone, as soon as both are picked. The second appears once you click an Aspect and
+  shows how that Aspect changes the ability — clicking a different Aspect updates it live, so you
+  can cycle through all 8 and compare, per his HoJ+Cunning / HoJ+Will example. Both preview names are
+  deterministic (not re-rolled every render), so they hold still while you're comparing.
+- **Note:** these previews are still just placeholder *names*, not real mechanical effects — the
+  actual effect-matrix idea from his HoJ example (each Aspect being a defined stat/ability modifier)
+  is still the bigger, unscoped item flagged in the vault design doc §18.
+
 ### Feedback pass 3 (2026-09-16)
 
 Polak's answers on round-2 open items, one concrete fix built (the rest are confirmations or
