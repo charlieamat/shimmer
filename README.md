@@ -40,6 +40,18 @@ A few things were added specifically to make the *mechanic* readable, not just t
 - **Category shape icons** (▲ Combat, ● Support, ◆ Utility) — pulls Polak's own Figma shape language
   (arrow/circle/diamond) into the prototype instead of using generic UI.
 
+### Feedback pass 2 (2026-09-16)
+
+Polak's second round on the fixed build, items 1-4 addressed (5-8 need discussion first — see the
+vault design doc §14 for the full breakdown):
+- **Added:** a remove (✕) button per crafted Ability, not just "Reset everything."
+- **Fixed:** the Type dropdown now stays disabled until a Category is explicitly chosen, instead of
+  defaulting to one.
+- **Fixed:** bonus Vocations now show a cumulative level (base, +1, +2, +3...) instead of every bonus
+  reading a flat "+1."
+- **Added:** Category color-coding (Combat/Support/Utility) on Vocation rows, the pool picker, and
+  filled board nodes, so synergizing Vocations are visually grouped.
+
 ### Feedback pass (2026-09-15)
 
 Polak's first reaction to the live build surfaced two bugs and a vague board complaint, all now
