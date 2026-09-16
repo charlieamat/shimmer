@@ -124,6 +124,18 @@
   .ability-card.linked { box-shadow: 0 0 0 1px var(--accent) inset; }
   .ability-card .name { font-weight: 600; }
   .ability-card .meta { color: var(--muted); font-size: 11px; margin-top: 2px; }
+  .ability-card .remove-btn {
+    float: right;
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 0 2px;
+    line-height: 1;
+  }
+  .ability-card .remove-btn:hover { color: var(--combat); }
   .tag {
     display: inline-block;
     font-size: 10px;
@@ -165,6 +177,10 @@
     font-weight: 700;
     font-size: 11px;
   }
+  /* Color-code by Category so synergizing Vocations (same Category) are visually grouped. */
+  .vocation-row.combat, .pool-item.combat { border-left: 3px solid var(--combat); }
+  .vocation-row.support, .pool-item.support { border-left: 3px solid var(--support); }
+  .vocation-row.utility, .pool-item.utility { border-left: 3px solid var(--utility); }
 
   /* --- Triangle RunePage board (center + 3 paths) --- */
   .board-svg circle {
@@ -175,6 +191,10 @@
   }
   .board-svg text { fill: var(--text); font-size: 9px; font-weight: 700; }
   .board-node.filled circle { fill: color-mix(in srgb, var(--accent) 30%, var(--panel-2)); stroke: var(--accent); }
+  /* Color-code filled Vocation nodes by Category, matching the Generated Vocations list. */
+  .board-node.filled.cat-combat circle { fill: color-mix(in srgb, var(--combat) 35%, var(--panel-2)); stroke: var(--combat); }
+  .board-node.filled.cat-support circle { fill: color-mix(in srgb, var(--support) 35%, var(--panel-2)); stroke: var(--support); }
+  .board-node.filled.cat-utility circle { fill: color-mix(in srgb, var(--utility) 35%, var(--panel-2)); stroke: var(--utility); }
   .board-node.available circle { stroke: var(--accent); animation: pulse-node 1.4s ease-in-out infinite; }
   .board-node.locked-vocation circle { stroke: var(--muted); stroke-dasharray: 3 2; opacity: 0.7; }
   .board-node.regular-node circle { opacity: 0.5; }
@@ -276,8 +296,9 @@
     <h2>2. Generated Vocations</h2>
     <div class="hint" style="margin-bottom:10px;">
       Each ability grants 1 base Vocation for its Aspect. Every <i>other</i> ability sharing that
-      ability's Category adds +1 bonus Vocation for that Aspect — watch the whole Category flash when
-      that happens. Hover an ability card to see which Vocation rows it produced.
+      ability's Category adds a bonus Vocation, numbered cumulatively (+1, +2, +3...) rather than a
+      flat +1 each time — watch the whole Category flash when a new one lands. Rows are color-coded
+      by Category. Hover an ability card to see which Vocation rows it produced.
     </div>
     <div id="vocation-list"></div>
   </div>
@@ -480,10 +501,11 @@ const CATEGORY_WORDS = {
 
 /* ====================================================================== */
 
-let abilities = [];          // {aspect, category, type, name}
+let abilities = [];          // {id, aspect, category, type, name}
+let abilityIdCounter = 0;    // stable per-ability id, independent of array position (removal-safe)
 let pendingAspect = null;    // chip currently selected for the next ability
 let selectedVocationKey = null;   // Aspect currently selected for board placement
-let placementOrder = [];     // ordered list of {nodeId, vocationKey, aspect}, in placement order
+let placementOrder = [];     // ordered list of {nodeId, vocationKey, aspect, category}, in placement order
 let prevVocationKeys = new Set(); // vocation keys from the previous render (for boost-flash detection)
 
 function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
@@ -501,31 +523,48 @@ function categoryCount(category) { return abilities.filter(a => a.category === c
 // distinct: it borrows the delivery type from the *other* ability that triggered it, not a copy of
 // the original. Total count per ability still equals categoryCount(a.category), matching the
 // confirmed formula (base 1 + bonus(count-1) = count) — only the identity of each one changed.
+//
+// Keys are built from stable ability `id`s (not array position), so removing one ability doesn't
+// shift or invalidate keys for the abilities that remain — see removeAbility().
+// `level` is a running count (1, 2, 3...) per Polak's feedback that every bonus was showing as a
+// flat "+1" instead of a cumulative power level.
 function computeVocations() {
   const vocs = [];
-  abilities.forEach((a, ai) => {
+  abilities.forEach(a => {
     vocs.push({
-      key: `${a.aspect}::base::${ai}`,
+      key: `${a.aspect}::base::${a.id}`,
       aspect: a.aspect,
       category: a.category,
       deliveryType: a.type,
-      abilityIndex: ai,
+      abilityId: a.id,
       kind: "base",
+      level: 0,
     });
-    abilities.forEach((b, bi) => {
-      if (bi === ai || b.category !== a.category) return;
+    let bonusLevel = 0;
+    abilities.forEach(b => {
+      if (b.id === a.id || b.category !== a.category) return;
+      bonusLevel++;
       vocs.push({
-        key: `${a.aspect}::bonus::${ai}::${bi}`,
+        key: `${a.aspect}::bonus::${a.id}::${b.id}`,
         aspect: a.aspect,
         category: a.category,
         deliveryType: b.type,
-        abilityIndex: ai,
+        abilityId: a.id,
         kind: "bonus",
+        level: bonusLevel,
         viaAbility: b.name,
       });
     });
   });
   return vocs;
+}
+
+function removeAbility(id) {
+  abilities = abilities.filter(a => a.id !== id);
+  const validKeys = new Set(computeVocations().map(v => v.key));
+  placementOrder = placementOrder.filter(p => validKeys.has(p.vocationKey));
+  if (selectedVocationKey && !validKeys.has(selectedVocationKey)) selectedVocationKey = null;
+  renderAll();
 }
 
 /* ---------- Category fill meters ---------- */
@@ -574,39 +613,55 @@ function renderBuilder() {
     return;
   }
 
-  const startCategory = CATEGORIES.find(c => categoryCount(c) < MAX_PER_CATEGORY) || CATEGORIES[0];
-
+  // Per Polak's feedback: no default Category pre-selected — the Type dropdown stays disabled
+  // until the user explicitly picks a Category, rather than showing the first Category's types
+  // right away.
   el.innerHTML = `
     <div class="row">
       <select id="sel-category">
+        <option value="" selected>— choose Category —</option>
         ${CATEGORIES.map(c => {
           const full = categoryCount(c) >= MAX_PER_CATEGORY;
-          return `<option value="${c}" ${full ? "disabled" : ""} ${c === startCategory ? "selected" : ""}>${CATEGORY_ICON[c]} ${c}${full ? " (full)" : ""}</option>`;
+          return `<option value="${c}" ${full ? "disabled" : ""}>${CATEGORY_ICON[c]} ${c}${full ? " (full)" : ""}</option>`;
         }).join("")}
       </select>
-      <select id="sel-type">
-        ${DELIVERY_TYPES[startCategory].map(t => `<option value="${t}">${t}</option>`).join("")}
+      <select id="sel-type" disabled>
+        <option value="">— pick a Category first —</option>
       </select>
-      <button id="add-ability-btn" ${pendingAspect ? "" : "disabled"}>
-        ${pendingAspect ? `Create ${pendingAspect} Ability` : "Pick an Aspect above"}
-      </button>
+      <button id="add-ability-btn" disabled>Pick an Aspect above</button>
     </div>
   `;
 
   const catSelect = document.getElementById("sel-category");
   const typeSelect = document.getElementById("sel-type");
-  // Type options are Category-specific (per Polak's worked-example doc) — repopulate on change.
-  catSelect.onchange = () => {
-    typeSelect.innerHTML = DELIVERY_TYPES[catSelect.value].map(t => `<option value="${t}">${t}</option>`).join("");
-  };
+  const addBtn = document.getElementById("add-ability-btn");
 
-  document.getElementById("add-ability-btn").onclick = () => {
+  function refresh() {
+    const category = catSelect.value;
+    if (!category) {
+      typeSelect.disabled = true;
+      typeSelect.innerHTML = `<option value="">— pick a Category first —</option>`;
+      addBtn.disabled = true;
+      addBtn.textContent = pendingAspect ? "Pick a Category" : "Pick an Aspect above";
+      return;
+    }
+    typeSelect.disabled = false;
+    typeSelect.innerHTML = DELIVERY_TYPES[category].map(t => `<option value="${t}">${t}</option>`).join("");
+    addBtn.disabled = !pendingAspect;
+    addBtn.textContent = pendingAspect ? `Create ${pendingAspect} Ability` : "Pick an Aspect above";
+  }
+  catSelect.onchange = refresh;
+  refresh();
+
+  addBtn.onclick = () => {
     if (!pendingAspect) return;
     const category = catSelect.value;
+    if (!category) return;
     const type = typeSelect.value;
+    if (!type) return;
     if (categoryCount(category) >= MAX_PER_CATEGORY) return;
     const name = generateAbilityName(pendingAspect, category);
-    abilities.push({ aspect: pendingAspect, category, type, name });
+    abilities.push({ id: abilityIdCounter++, aspect: pendingAspect, category, type, name });
     pendingAspect = null;
     renderAll();
   };
@@ -620,7 +675,8 @@ function renderAbilityList() {
     return;
   }
   el.innerHTML = abilities.map((a, i) => `
-    <div class="ability-card ${catClass(a.category)}" data-aspect="${a.aspect}">
+    <div class="ability-card ${catClass(a.category)}" data-aspect="${a.aspect}" data-id="${a.id}">
+      <button class="remove-btn" data-id="${a.id}" title="Remove this Ability">✕</button>
       <div class="name"><span class="icon">${CATEGORY_ICON[a.category]}</span> ${i + 1}. ${a.name}</div>
       <div class="meta">
         <span class="tag ${catClass(a.category)}">${a.category}</span>
@@ -633,6 +689,12 @@ function renderAbilityList() {
   el.querySelectorAll(".ability-card").forEach(card => {
     card.onmouseenter = () => setLinked(card.dataset.aspect, true);
     card.onmouseleave = () => setLinked(card.dataset.aspect, false);
+  });
+  el.querySelectorAll(".remove-btn").forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      removeAbility(Number(btn.dataset.id));
+    };
   });
 }
 
@@ -654,23 +716,22 @@ function renderVocations() {
     prevVocationKeys = new Set();
     return;
   }
-  const newestAbilityIndex = abilities.length - 1;
+  const newestAbilityId = abilities.length ? abilities[abilities.length - 1].id : null;
   el.innerHTML = vocs.map(v => {
     const isNew = prevVocationKeys.size > 0 && !prevVocationKeys.has(v.key);
-    const isOwnAbility = v.abilityIndex === newestAbilityIndex && v.kind === "base";
+    const isOwnAbility = v.abilityId === newestAbilityId && v.kind === "base";
     const boosted = isNew && !isOwnAbility;
-    const label = v.kind === "base"
-      ? `${v.aspect} — ${v.deliveryType}`
-      : `${v.aspect} — ${v.deliveryType}`;
+    const label = `${v.aspect} — ${v.deliveryType}`;
     const formula = v.kind === "base"
       ? "base Vocation for this Ability"
-      : `+1 synergy Vocation (shared Category with "${v.viaAbility}")`;
+      : `+${v.level} synergy Vocation (shared Category with "${v.viaAbility}")`;
     return `
-      <div class="vocation-row ${boosted ? "boosted" : ""}" data-aspect="${v.aspect}" data-key="${v.key}">
+      <div class="vocation-row ${catClass(v.category)} ${boosted ? "boosted" : ""}" data-aspect="${v.aspect}" data-key="${v.key}">
         <div>
           <div><span class="icon">${CATEGORY_ICON[v.category]}</span> ${POTENTIALS.join("+")} · ${label}</div>
           <div class="formula">${formula}</div>
         </div>
+        <div class="vocation-count">${v.kind === "base" ? "base" : "+" + v.level}</div>
       </div>
     `;
   }).join("");
@@ -698,9 +759,10 @@ function renderPoolPicker() {
     const selected = selectedVocationKey === v.key ? "selected" : "";
     const isPlaced = placedKeys.has(v.key);
     const depleted = isPlaced ? "depleted" : "";
+    const levelTag = v.kind === "base" ? "base" : `+${v.level}`;
     return `
-      <div class="pool-item ${selected} ${depleted}" data-key="${v.key}">
-        <span class="icon">${CATEGORY_ICON[v.category]}</span> ${v.aspect} (${v.deliveryType})
+      <div class="pool-item ${catClass(v.category)} ${selected} ${depleted}" data-key="${v.key}">
+        <span class="icon">${CATEGORY_ICON[v.category]}</span> ${v.aspect} (${v.deliveryType}) <span class="count">${levelTag}</span>
         ${isPlaced ? `<span class="count">✓</span>` : ""}
       </div>
     `;
@@ -772,8 +834,8 @@ function renderBoard() {
   const el = document.getElementById("board");
   const { nodes, edges, paths } = buildBoardLayout();
 
-  const placedMap = {}; // nodeId -> aspect
-  placementOrder.forEach(p => { placedMap[p.nodeId] = p.aspect; });
+  const placedMap = {}; // nodeId -> {aspect, category}
+  placementOrder.forEach(p => { placedMap[p.nodeId] = { aspect: p.aspect, category: p.category }; });
   const centerFilled = !!placedMap["center"];
 
   function isAvailable(node) {
@@ -793,17 +855,17 @@ function renderBoard() {
   }).join("");
 
   const nodeShapes = nodes.map(n => {
-    const aspect = placedMap[n.id];
-    const filled = !!aspect;
+    const placed = placedMap[n.id];
+    const filled = !!placed;
     const avail = isAvailable(n);
     const r = n.id === "center" ? 18 : (n.type === "vocation" ? 14 : (n.isBorder ? 6 : 9));
     let cls = "board-node";
-    if (filled) cls += " filled";
+    if (filled) cls += ` filled cat-${catClass(placed.category)}`;
     else if (avail) cls += " available";
     else if (n.type === "vocation") cls += " locked-vocation";
     else if (n.isBorder) cls += " border-node";
     else cls += " regular-node";
-    const label = filled ? aspect.slice(0, 3) : (n.type === "vocation" ? "★" : "");
+    const label = filled ? placed.aspect.slice(0, 3) : (n.type === "vocation" ? "★" : "");
     return `
       <g class="${cls}" data-node="${n.id}" data-type="${n.type}">
         <circle cx="${n.x - minX}" cy="${n.y - minY}" r="${r}" />
@@ -831,7 +893,7 @@ function renderBoard() {
       if (alreadyPlaced) return;
       const voc = computeVocations().find(v => v.key === selectedVocationKey);
       if (!voc) return;
-      placementOrder.push({ nodeId, vocationKey: selectedVocationKey, aspect: voc.aspect });
+      placementOrder.push({ nodeId, vocationKey: selectedVocationKey, aspect: voc.aspect, category: voc.category });
       selectedVocationKey = null;
       renderAll();
     };
@@ -851,6 +913,7 @@ function renderAll() {
 
 document.getElementById("reset-btn").onclick = () => {
   abilities = [];
+  abilityIdCounter = 0;
   pendingAspect = null;
   selectedVocationKey = null;
   placementOrder = [];
