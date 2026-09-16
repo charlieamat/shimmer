@@ -510,6 +510,11 @@ const CATEGORY_WORDS = {
 let abilities = [];          // {id, aspect, category, type, name}
 let abilityIdCounter = 0;    // stable per-ability id, independent of array position (removal-safe)
 let pendingAspect = null;    // chip currently selected for the next ability
+let pendingCategory = null;  // Category currently selected for the next ability
+let pendingType = null;      // Type currently selected for the next ability
+// All three persist independently, per Polak's feedback: picking one shouldn't wipe the others —
+// he wants to be able to pick Category+Type first, then cycle through Aspects. Type only resets
+// when Category itself changes, since its options depend on Category.
 let selectedVocationKey = null;   // Aspect currently selected for board placement
 let placementOrder = [];     // ordered list of {nodeId, vocationKey, aspect, category}, in placement order
 let prevVocationKeys = new Set(); // vocation keys from the previous render (for boost-flash detection)
@@ -619,22 +624,38 @@ function renderBuilder() {
     return;
   }
 
-  // Per Polak's feedback: no default Category pre-selected — the Type dropdown stays disabled
-  // until the user explicitly picks a Category, rather than showing the first Category's types
-  // right away.
+  // Per Polak's feedback: Aspect, Category, and Type can be picked in any order — none of them
+  // reset just because another one changed, EXCEPT Type resets if Category itself changes (its
+  // options depend on Category, so a stale Type value could be invalid for the new Category). If
+  // a pending Category got filled up some other way while it was still pending, drop it.
+  if (pendingCategory && categoryCount(pendingCategory) >= MAX_PER_CATEGORY) {
+    pendingCategory = null;
+    pendingType = null;
+  }
+  const typeOptions = pendingCategory ? DELIVERY_TYPES[pendingCategory] : [];
+  const canCreate = !!(pendingAspect && pendingCategory && pendingType);
+  const missing = !pendingAspect ? "Pick an Aspect" : !pendingCategory ? "Pick a Category" : !pendingType ? "Pick a Type" : null;
+
   el.innerHTML = `
     <div class="row">
       <select id="sel-category">
-        <option value="" selected>— choose Category —</option>
+        <option value="" ${!pendingCategory ? "selected" : ""}>— choose Category —</option>
         ${CATEGORIES.map(c => {
           const full = categoryCount(c) >= MAX_PER_CATEGORY;
-          return `<option value="${c}" ${full ? "disabled" : ""}>${CATEGORY_ICON[c]} ${c}${full ? " (full)" : ""}</option>`;
+          return `<option value="${c}" ${full ? "disabled" : ""} ${c === pendingCategory ? "selected" : ""}>${CATEGORY_ICON[c]} ${c}${full ? " (full)" : ""}</option>`;
         }).join("")}
       </select>
-      <select id="sel-type" disabled>
-        <option value="">— pick a Category first —</option>
+      <select id="sel-type" ${pendingCategory ? "" : "disabled"}>
+        <option value="" ${!pendingType ? "selected" : ""}>${pendingCategory ? "— choose Type —" : "— pick a Category first —"}</option>
+        ${typeOptions.map(t => `<option value="${t}" ${t === pendingType ? "selected" : ""}>${t}</option>`).join("")}
       </select>
-      <button id="add-ability-btn" disabled>Pick an Aspect above</button>
+      <button id="add-ability-btn" ${canCreate ? "" : "disabled"}>
+        ${canCreate ? `Create ${pendingAspect} Ability` : missing}
+      </button>
+    </div>
+    <div class="hint" style="margin-top:6px;">
+      Pick Aspect, Category, and Type in any order you like — nothing resets until you create the
+      Ability, except Type (its options depend on Category).
     </div>
   `;
 
@@ -642,33 +663,25 @@ function renderBuilder() {
   const typeSelect = document.getElementById("sel-type");
   const addBtn = document.getElementById("add-ability-btn");
 
-  function refresh() {
-    const category = catSelect.value;
-    if (!category) {
-      typeSelect.disabled = true;
-      typeSelect.innerHTML = `<option value="">— pick a Category first —</option>`;
-      addBtn.disabled = true;
-      addBtn.textContent = pendingAspect ? "Pick a Category" : "Pick an Aspect above";
-      return;
-    }
-    typeSelect.disabled = false;
-    typeSelect.innerHTML = DELIVERY_TYPES[category].map(t => `<option value="${t}">${t}</option>`).join("");
-    addBtn.disabled = !pendingAspect;
-    addBtn.textContent = pendingAspect ? `Create ${pendingAspect} Ability` : "Pick an Aspect above";
-  }
-  catSelect.onchange = refresh;
-  refresh();
+  catSelect.onchange = () => {
+    const newCategory = catSelect.value || null;
+    if (newCategory !== pendingCategory) pendingType = null;
+    pendingCategory = newCategory;
+    renderAll();
+  };
+  typeSelect.onchange = () => {
+    pendingType = typeSelect.value || null;
+    renderAll();
+  };
 
   addBtn.onclick = () => {
-    if (!pendingAspect) return;
-    const category = catSelect.value;
-    if (!category) return;
-    const type = typeSelect.value;
-    if (!type) return;
-    if (categoryCount(category) >= MAX_PER_CATEGORY) return;
-    const name = generateAbilityName(pendingAspect, category);
-    abilities.push({ id: abilityIdCounter++, aspect: pendingAspect, category, type, name });
+    if (!canCreate) return;
+    if (categoryCount(pendingCategory) >= MAX_PER_CATEGORY) return;
+    const name = generateAbilityName(pendingAspect, pendingCategory);
+    abilities.push({ id: abilityIdCounter++, aspect: pendingAspect, category: pendingCategory, type: pendingType, name });
     pendingAspect = null;
+    pendingCategory = null;
+    pendingType = null;
     renderAll();
   };
 }
@@ -990,6 +1003,8 @@ document.getElementById("reset-btn").onclick = () => {
   abilities = [];
   abilityIdCounter = 0;
   pendingAspect = null;
+  pendingCategory = null;
+  pendingType = null;
   selectedVocationKey = null;
   placementOrder = [];
   prevVocationKeys = new Set();

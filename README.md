@@ -59,6 +59,27 @@ pulling one out is meant to have a consequence. Open question for Polak: does re
 placement cost anything in the real design (like the resource-cost Orb extraction on Vestiges), or
 is it meant to be free? The prototype currently treats it as free.
 
+### Feedback pass 3 (2026-09-16)
+
+Polak's answers on round-2 open items, one concrete fix built (the rest are confirmations or
+deferred — see the vault design doc §16 for the full breakdown):
+- **Fixed:** Aspect, Category, and Type in the Craft Ability panel can now be picked in any order.
+  Previously the panel was fully stateless per-render, so picking one field silently reset the
+  others. Now all three persist independently — you can pick Category → Type first, then cycle
+  through Aspects, per Polak's request — and only Type resets, and only when Category itself
+  changes (since its options depend on Category).
+- **Confirmed, no change needed:** the board's pull-Vocation-and-replace repair loop already works
+  as described — removing a Vocation breaks the path, placing a different one in the same V-Node
+  repairs it, purely because chain validity is presence-based per node.
+- **Confirmed:** board removal stays free for now (could change later).
+- **Still open:** border node count isn't finalized — Polak's citing Path of Exile / WoW
+  Dragonflight talent trees as inspiration; regular nodes = stat increases, Vocation nodes = talents.
+- **Noted, not building yet:** an idea for Vocation nodes buffing (or being buffed by) nearby
+  regular nodes on the board — explicitly flagged by Polak as an unspec'd future balance variable,
+  not a decision.
+- **Still deferred:** the alternate ability-creation grid view and cross-page filtering — Polak
+  wants to talk those through live before anything gets built.
+
 ### Feedback pass 2 (2026-09-16)
 
 Polak's second round on the fixed build, items 1-4 addressed (5-8 need discussion first — see the
