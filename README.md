@@ -40,6 +40,25 @@ A few things were added specifically to make the *mechanic* readable, not just t
 - **Category shape icons** (▲ Combat, ● Support, ◆ Utility) — pulls Polak's own Figma shape language
   (arrow/circle/diamond) into the prototype instead of using generic UI.
 
+### Board rewrite (2026-09-16)
+
+Item 7 from the round-2 feedback — the board is now a real per-path progression instead of "center
+unlocks everything":
+- **Progressive unlock:** each path's nodes fill in strict order (center → node 1 → 2 → 3 → the
+  4th-node Vocation slot). Regular nodes just need a click; Vocation nodes still need a Vocation
+  selected first.
+- **Remove any node:** click any filled node (not just the most recent one) to remove it. "Undo
+  last placement" still works too, as a quick-undo shortcut.
+- **Broken-chain detection:** removing an earlier node that orphans nodes further down the path
+  marks those nodes as broken (red, dashed, "!"), with a warning and a one-click "Clear broken
+  nodes" button to clean them up.
+
+In-game framing (per Polak's Discord writeup): this mirrors "you spend points along a path to
+reach an exit node" — the regular nodes represent real investment, not just visual connectors, so
+pulling one out is meant to have a consequence. Open question for Polak: does removing a board
+placement cost anything in the real design (like the resource-cost Orb extraction on Vestiges), or
+is it meant to be free? The prototype currently treats it as free.
+
 ### Feedback pass 2 (2026-09-16)
 
 Polak's second round on the fixed build, items 1-4 addressed (5-8 need discussion first — see the
