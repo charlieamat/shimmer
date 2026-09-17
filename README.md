@@ -59,6 +59,23 @@ pulling one out is meant to have a consequence. Open question for Polak: does re
 placement cost anything in the real design (like the resource-cost Orb extraction on Vestiges), or
 is it meant to be free? The prototype currently treats it as free.
 
+### Potential picker + "finished Perpetual" completion (2026-09-17)
+
+First step toward the "login to finished Perpetual" scope Polak asked for:
+- **Added:** a real Step 0 — pick exactly 2 Potentials from a list to form your pair, then lock it
+  in. Everything else (ability crafting, Vocations, the board) stays hidden until you do. The 4
+  Potential names in the list right now (`POTENTIAL_OPTIONS`) are placeholders — swap in the real
+  list whenever it's ready, the picker works with however many are in there.
+- **Added:** a "change" link next to the locked Potentials that resets everything (with a confirm)
+  so you can try a different pair without reloading the page.
+- **Added:** a "Perpetual Complete" banner once all 8 Abilities are crafted, summarizing the
+  Potentials pair, ability count, total Vocations generated, and how many of the board's 4 Vocation
+  nodes are filled — a visible, testable endpoint for the whole creation flow, which is the actual
+  point of this pass. Doesn't lock the UI afterward; everything stays editable/inspectable.
+- Not addressed yet: this only closes the mechanical loop. Polak's cohesion/bloat/creep concern about
+  Potentials thematically working across every ability is a content question, not a UI one — it'll
+  become visible once real Potential names and more Aspect-effect content exist (see vault §18, §23).
+
 ### Feedback pass 4 (2026-09-16)
 
 Polak's follow-up on the field-order fix — a concrete, buildable UI idea:
