@@ -20,11 +20,11 @@ dependencies either way.
    its Aspect (using its own delivery type), and every *other* ability sharing its Category adds +1
    bonus Vocation, borrowing *that other ability's* delivery type — so each one is genuinely distinct,
    not a numbered duplicate. Matches the confirmed formula (22 Vocations from a full 8-ability build).
-3. **Confluence Board (simplified)** — a shared center node plus 3 paths radiating out to trace an
-   invisible equilateral triangle, weighted Combat+Utility / Combat+Support / Support+Utility. The
-   center and each path's 4th node (marked ★) are real Vocation nodes; everything else is a passive
-   node you snake past. Select a Vocation, then place it on a pulsing ★. "Undo last placement" is the
-   escape hatch instead of free node removal.
+3. **Confluence (circles)** — 5 rings (2 Potentials + Combat/Support/Utility), sized by how much
+   you invested in each, arranged in a fixed pentagon so each only overlaps its two neighbors.
+   Rotate a ring (◀ ▶) to change which of its nodes lines up at its two intersections. Select a
+   Vocation, then click a lit-up intersection to place it. **Replaces the old triangular-path
+   board entirely** — see the "Confluence rebuild" section below.
 
 ### Design pass (2026-09-14)
 
@@ -75,6 +75,32 @@ First step toward the "login to finished Perpetual" scope Polak asked for:
 - Not addressed yet: this only closes the mechanical loop. Polak's cohesion/bloat/creep concern about
   Potentials thematically working across every ability is a content question, not a UI one — it'll
   become visible once real Potential names and more Aspect-effect content exist (see vault §18, §23).
+
+### Confluence rebuild + Potential split (2026-09-21)
+
+Two pieces, both from Polak's latest round (design doc §25-27):
+
+- **Potential-per-ability split, built:** each Ability now gets tagged with one of the 2 locked
+  Potentials, with a minimum of 3 per side enforced (splits: 3/5, 4/4, or 5/3) — no more forcing
+  every ability to blend both Potentials into one theme. The exact "3" minimum wasn't restated
+  numerically in the latest message; carried forward from the earlier proposal as the working
+  number, flagged as an assumption.
+- **Confluence (circles), built — full replacement of the triangular board:** 5 rings (2
+  Potentials + Combat/Support/Utility), each sized by investment count, arranged in a fixed
+  pentagon so overlaps stay strictly pairwise (no 3+-way overlaps — his own stated preference).
+  Each ring's nodes are evenly spaced; rotating a ring snaps between fixed positions, changing
+  which node lines up at each of its two intersections with its neighbors — the "reveal by
+  sliding" mechanic from his Discord message.
+- **Open, not guessed at:** where Vocations actually go on the new board wasn't spec'd. The
+  prototype's working assumption is that the 5 intersections are the placeable slots (same role
+  the old board's Vocation nodes played) — flagged in the Design Notes tab and worth an explicit
+  confirm from Polak rather than treating as settled.
+- Not built: Rune Word circles (adds more rings later) — same "out of scope for v0" as
+  multi-board was before.
+- Verified via Playwright: 5 rings/5 wedges render, ring sizes track ability counts exactly,
+  rotating a ring changes the revealed node text, Vocation placement/removal on intersections
+  works, completion banner reflects the new "X/5 intersections" wording, Potential-split cap
+  (max 5 per side) correctly blocks over-committing to one Potential.
 
 ### Feedback pass 4 (2026-09-16)
 

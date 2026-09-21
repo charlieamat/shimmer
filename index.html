@@ -211,32 +211,49 @@
   .vocation-row.support, .pool-item.support { border-left: 3px solid var(--support); }
   .vocation-row.utility, .pool-item.utility { border-left: 3px solid var(--utility); }
 
-  /* --- Triangle RunePage board (center + 3 paths) --- */
-  .board-svg circle {
+  /* --- Confluence circles (5 overlapping rings + intersection nodes) --- */
+  :root {
+    --potential1: #d68fd6;
+    --potential2: #7fbf7f;
+  }
+  .confluence-svg .ring {
+    fill: none;
+    stroke-width: 2;
+    opacity: 0.75;
+  }
+  .confluence-svg .ring-label { font-size: 10px; font-weight: 700; text-anchor: middle; }
+  .confluence-svg .ring-count { font-size: 9px; text-anchor: middle; opacity: 0.7; }
+  .confluence-svg .wedge circle {
     fill: var(--panel-2);
     stroke: var(--border);
     stroke-width: 2;
+    cursor: pointer;
     transition: fill 0.2s ease, stroke 0.2s ease, stroke-width 0.2s ease;
   }
-  .board-svg text { fill: var(--text); font-size: 9px; font-weight: 700; }
-  .board-node.filled-vocation circle { fill: color-mix(in srgb, var(--accent) 30%, var(--panel-2)); stroke: var(--accent); }
-  /* Color-code filled Vocation nodes by Category, matching the Generated Vocations list. */
-  .board-node.filled-vocation.cat-combat circle { fill: color-mix(in srgb, var(--combat) 35%, var(--panel-2)); stroke: var(--combat); }
-  .board-node.filled-vocation.cat-support circle { fill: color-mix(in srgb, var(--support) 35%, var(--panel-2)); stroke: var(--support); }
-  .board-node.filled-vocation.cat-utility circle { fill: color-mix(in srgb, var(--utility) 35%, var(--panel-2)); stroke: var(--utility); }
-  /* A "passed through" regular node — walked but holding no Vocation. */
-  .board-node.filled-regular circle { fill: color-mix(in srgb, var(--accent) 18%, var(--panel-2)); stroke: var(--accent); opacity: 0.85; }
-  /* Orphaned by removing an earlier node on the same path — needs the user's attention. */
-  .board-node.broken circle { fill: color-mix(in srgb, var(--combat) 20%, var(--panel-2)); stroke: var(--combat); stroke-dasharray: 3 2; }
-  .board-node.broken text { fill: var(--combat); }
-  .board-node.available circle { stroke: var(--accent); animation: pulse-node 1.4s ease-in-out infinite; }
-  .board-node.locked-vocation circle { stroke: var(--muted); stroke-dasharray: 3 2; opacity: 0.7; }
-  .board-node.regular-node circle { opacity: 0.5; }
-  .board-node.border-node circle { opacity: 0.35; stroke-dasharray: 1 3; }
+  .confluence-svg .wedge text { fill: var(--text); font-size: 8px; font-weight: 700; text-anchor: middle; }
+  .confluence-svg .wedge.placeable circle { stroke: var(--accent); animation: pulse-node 1.4s ease-in-out infinite; }
+  .confluence-svg .wedge.filled circle { fill: color-mix(in srgb, var(--accent) 30%, var(--panel-2)); stroke: var(--accent); cursor: pointer; }
+  .confluence-svg .wedge.filled.cat-combat circle { fill: color-mix(in srgb, var(--combat) 35%, var(--panel-2)); stroke: var(--combat); }
+  .confluence-svg .wedge.filled.cat-support circle { fill: color-mix(in srgb, var(--support) 35%, var(--panel-2)); stroke: var(--support); }
+  .confluence-svg .wedge.filled.cat-utility circle { fill: color-mix(in srgb, var(--utility) 35%, var(--panel-2)); stroke: var(--utility); }
   @keyframes pulse-node {
     0%, 100% { stroke-width: 2; }
     50% { stroke-width: 5; }
   }
+  .ring-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 4px 8px;
+    margin-bottom: 4px;
+    font-size: 11px;
+  }
+  .ring-controls button { padding: 2px 8px; font-size: 11px; }
+  .ring-controls .swatch { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 4px; }
   .board-legend { display: flex; gap: 14px; justify-content: center; margin-top: 10px; font-size: 11px; color: var(--muted); flex-wrap: wrap; }
 
   .pool-item {
@@ -289,10 +306,10 @@
 
 <h1>Shimmer — Character Generation Prototype (v0)</h1>
 <div class="sub">
-  Validates the ability → Vocation → Confluence Board generation logic behind Shimmer's character
-  creation. Scope is deliberately narrow: one hardcoded Potential pair, a single triangular board (3
-  paths from a shared center), no Vestiges/items, no FTL meta-map. Full writeup is under the
-  <b>Design Notes</b> tab.
+  Validates the ability → Vocation → Confluence generation logic behind Shimmer's character
+  creation. Scope is deliberately narrow: a Potential-pair picker with a min-3-per-side split, 5
+  overlapping Confluence circles (no Rune Word/multi-circle expansion), no Vestiges/items, no FTL
+  meta-map. Full writeup is under the <b>Design Notes</b> tab.
 </div>
 
 <div class="tabs">
@@ -352,15 +369,15 @@
     <div id="vocation-list"></div>
   </div>
 
-  <!-- Column 3: Confluence board -->
+  <!-- Column 3: Confluence (circles) -->
   <div class="panel">
-    <h2>3. Confluence Board (simplified)</h2>
+    <h2>3. Confluence (circles)</h2>
     <div class="hint" style="margin-bottom:10px;">
-      Nodes unlock in order, path by path — click a pulsing node to walk it (regular nodes just
-      need a click; ★ Vocation nodes need a Vocation selected first). Click <b>any</b> filled node
-      to remove it — if that orphans nodes further down the path, they'll show up in red with a
-      "!" and you'll get a prompt to fix or clear them. Real multi-board
-      connectivity/rotation/Rune Words are still out of scope for v0.
+      5 rings — 2 Potentials + Combat/Support/Utility — sized by how much you invested in each.
+      Each ring has evenly-spaced nodes around it; use ◀ ▶ to rotate a ring and change which node
+      lines up at its two intersections with its neighbors. Select a Vocation below, then click a
+      lit-up intersection to place it there; click a filled intersection to remove it. Rune Words /
+      additional circles are still out of scope for v0, same as the old board.
     </div>
     <div id="pool-picker" style="margin-bottom:10px;"></div>
     <button class="secondary" id="undo-btn" style="margin-bottom:12px;">Undo last placement</button>
@@ -437,23 +454,22 @@
     one Category means a deep Vocation pool for that Category's Aspects, at the cost of fewer Vocations
     elsewhere.</p>
 
-    <h4>Step 4 — Confluence Board (talent board)</h4>
-    <p>A Diablo 4 Paragon Board homage: a node board you snake a path through, placing generated
-    Vocations as you go.</p>
+    <h4>Step 4 — Confluence (circles)</h4>
+    <p><b>Replaces the earlier triangular-path board entirely</b>, per Polak's 2026-09-21 spec (design
+    doc §25-27). 5 overlapping rings instead of a node path.</p>
     <ul>
-      <li>Starting board is 3 paths radiating from a shared center, tracing an invisible equilateral
-      triangle — each path weighted by two of the three Categories (Combat+Utility, Combat+Support,
-      Support+Utility), shaped by how many abilities you put into each.</li>
-      <li>The center node is a shared Vocation node; each path's 4th node is also a Vocation node.
-      Everything else is a passive node you snake past. (Polak also described 1-2 extra nodes "over" at
-      the border of each path — shown in the prototype as regular nodes, pending a confirm on exactly
-      what that means.)</li>
-      <li>Reaching the board's edge lets you attach and rotate another board ("Confluence Page") to
-      keep snaking.</li>
-      <li>New Confluence Pages are earned via <b>Rune Words</b> — words/knowledge collected while
-      adventuring across realities. Stronger Rune Words → boards that reach an edge faster with fewer
-      nodes. Weaker ones → more nodes, more incremental power.</li>
-      <li>Making a board connection unlocks a Vestige (item) slot.</li>
+      <li>5 starting rings — the 2 Potentials plus Combat/Support/Utility — each ring's size
+      (candidate node count) set by how many abilities you invested there.</li>
+      <li>Rings sit in a fixed pentagon, evenly spaced, so each one only ever overlaps its two
+      neighbors — no 3+-way overlaps, by design.</li>
+      <li>Each ring's nodes are evenly spaced around it. Rotating a ring (◀ ▶) snaps between fixed
+      positions, changing which of its nodes lines up at each of its two intersections.</li>
+      <li>Where two rings meet, a combined node is "revealed" — one candidate from each ring. <b>Where
+      Vocations actually go on this version isn't spec'd yet</b> — the prototype's working assumption
+      is that the 5 intersections are the placeable slots, same as the old board's Vocation nodes,
+      pending Polak's confirm.</li>
+      <li>Rune Words still add more circles later (unconfirmed how many/how) — out of scope for v0,
+      same as multi-board was for the old layout.</li>
     </ul>
 
     <h4>Step 5 — Vestiges (items)</h4>
@@ -497,12 +513,12 @@
 
   <div class="panel">
     <h3>This Prototype's Scope</h3>
-    <p>Hardcodes 1 Potential pair, all 8 Aspects, the 3 Categories, and a minimal Confluence Board
-    (single triangular board — center + 3 paths, no Rune Words/multi-board) — enough to click through
-    ability creation → Vocation generation → placing Vocations on the board's 4 Vocation nodes.
-    Vestiges/items and the FTL meta-map are intentionally skipped; they're separable systems. This
-    validates the generation logic, which is the actual novel part of the design, before investing in
-    content tooling or a real engine.</p>
+    <p>Lets you pick any Potential pair (min-3-per-side split enforced), all 8 Aspects, the 3
+    Categories, and a minimal Confluence (5 overlapping circles, no Rune Word/multi-circle expansion)
+    — enough to click through ability creation → Vocation generation → placing Vocations on the
+    Confluence's 5 intersections. Vestiges/items and the FTL meta-map are intentionally skipped;
+    they're separable systems. This validates the generation logic, which is the actual novel part of
+    the design, before investing in content tooling or a real engine.</p>
   </div>
 
 </div><!-- /tab-design -->
@@ -557,14 +573,24 @@ const CATEGORY_WORDS = {
 let pendingPotentials = [];  // up to 2 Potential names currently toggled in the picker
 let lockedPotentials = null; // the finalized pair, once locked in
 
-let abilities = [];          // {id, aspect, category, type, name}
+let abilities = [];          // {id, aspect, category, type, name, potentialTag}
 let abilityIdCounter = 0;    // stable per-ability id, independent of array position (removal-safe)
 let pendingAspect = null;    // chip currently selected for the next ability
 let pendingCategory = null;  // Category currently selected for the next ability
 let pendingType = null;      // Type currently selected for the next ability
-// All three persist independently, per Polak's feedback: picking one shouldn't wipe the others —
+let pendingPotentialTag = null; // which of the 2 locked Potentials this ability is tied to
+// All four persist independently, per Polak's feedback: picking one shouldn't wipe the others —
 // he wants to be able to pick Category+Type first, then cycle through Aspects. Type only resets
 // when Category itself changes, since its options depend on Category.
+
+// Per Polak's split-Potential model (2026-09-21): abilities no longer blend both Potentials into
+// one theme — each ability belongs to ONE of the 2 locked Potentials, and a minimum split is
+// enforced so a player can't dump all 8 into a single Potential ("block monotypes"). Carrying
+// forward "at least 3 per Potential" as the working minimum (splits: 3/5, 4/4, 5/3) — the only
+// concrete number actually on the table; flagged to Charlie as an assumption.
+const MIN_PER_POTENTIAL = 3;
+const MAX_PER_POTENTIAL = 8 - MIN_PER_POTENTIAL; // 5 — leaves room for the other side to hit the minimum
+function potentialCount(p) { return abilities.filter(a => a.potentialTag === p).length; }
 let selectedVocationKey = null;   // Aspect currently selected for board placement
 let placementOrder = [];     // ordered list of {nodeId, vocationKey, aspect, category}, in placement order
 let prevVocationKeys = new Set(); // vocation keys from the previous render (for boost-flash detection)
@@ -691,9 +717,11 @@ function renderPotentialStep() {
       pendingAspect = null;
       pendingCategory = null;
       pendingType = null;
+      pendingPotentialTag = null;
       selectedVocationKey = null;
       placementOrder = [];
       prevVocationKeys = new Set();
+      ringRotation = { potential1: 0, potential2: 0, combat: 0, support: 0, utility: 0 };
       renderAll();
     };
     return;
@@ -793,13 +821,31 @@ function renderBuilder() {
     pendingCategory = null;
     pendingType = null;
   }
+  // Same guard for a pending Potential tag that hit its max (leaving no room for the other side
+  // to reach the minimum) some other way while still pending.
+  if (pendingPotentialTag && potentialCount(pendingPotentialTag) >= MAX_PER_POTENTIAL) {
+    pendingPotentialTag = null;
+  }
   const typeOptions = pendingCategory ? DELIVERY_TYPES[pendingCategory] : [];
 
   const basePreview = (pendingCategory && pendingType)
     ? `<div class="preview-box filled"><div class="preview-label">Ability so far</div><div class="preview-name">${previewBaseName(pendingCategory, pendingType)}</div></div>`
     : `<div class="preview-box"><div class="preview-label">Ability so far</div><div class="empty">Pick a Category and Type to see a preview</div></div>`;
 
+  // Per Polak's split-Potential model: each ability is tied to ONE of the 2 locked Potentials, not
+  // a blend of both. A Potential is disabled once it hits MAX_PER_POTENTIAL (5), since going past
+  // that would make it impossible for the other Potential to reach its minimum of 3 across 8 total.
+  const potentialButtons = lockedPotentials.map(p => {
+    const count = potentialCount(p);
+    const full = count >= MAX_PER_POTENTIAL;
+    const isSelected = pendingPotentialTag === p;
+    const cls = isSelected ? "selected" : (full ? "used" : "");
+    return `<div class="aspect-chip ${cls}" data-potential-tag="${p}">${p} (${count}/${MAX_PER_POTENTIAL})</div>`;
+  }).join("");
+
   el.innerHTML = `
+    <div class="hint" style="margin-bottom:6px;">Which Potential is this ability tied to? (min ${MIN_PER_POTENTIAL} of each across all 8)</div>
+    <div class="aspect-chips" id="potential-tag-chips">${potentialButtons}</div>
     <div class="row">
       <select id="sel-category">
         <option value="" ${!pendingCategory ? "selected" : ""}>— choose Category —</option>
@@ -817,6 +863,14 @@ function renderBuilder() {
       ${basePreview}
     </div>
   `;
+
+  document.getElementById("potential-tag-chips").querySelectorAll(".aspect-chip:not(.used)").forEach(chip => {
+    chip.onclick = () => {
+      const p = chip.dataset.potentialTag;
+      pendingPotentialTag = pendingPotentialTag === p ? null : p;
+      renderAll();
+    };
+  });
 
   const catSelect = document.getElementById("sel-category");
   const typeSelect = document.getElementById("sel-type");
@@ -838,8 +892,8 @@ function renderCreateRow() {
   const el = document.getElementById("create-row");
   if (abilities.length >= 8) { el.innerHTML = ""; return; }
 
-  const canCreate = !!(pendingAspect && pendingCategory && pendingType);
-  const missing = !pendingCategory ? "Pick a Category" : !pendingType ? "Pick a Type" : !pendingAspect ? "Pick an Aspect" : null;
+  const canCreate = !!(pendingAspect && pendingCategory && pendingType && pendingPotentialTag);
+  const missing = !pendingPotentialTag ? "Pick a Potential" : !pendingCategory ? "Pick a Category" : !pendingType ? "Pick a Type" : !pendingAspect ? "Pick an Aspect" : null;
 
   el.innerHTML = `
     <div class="row">
@@ -848,19 +902,21 @@ function renderCreateRow() {
       </button>
     </div>
     <div class="hint" style="margin-top:2px; margin-bottom:10px;">
-      Pick Category, Type, and Aspect in any order you like — nothing resets until you create the
-      Ability, except Type (its options depend on Category).
+      Pick Potential, Category, Type, and Aspect in any order you like — nothing resets until you
+      create the Ability, except Type (its options depend on Category).
     </div>
   `;
 
   document.getElementById("add-ability-btn").onclick = () => {
     if (!canCreate) return;
     if (categoryCount(pendingCategory) >= MAX_PER_CATEGORY) return;
+    if (potentialCount(pendingPotentialTag) >= MAX_PER_POTENTIAL) return;
     const name = generateAbilityName(pendingAspect, pendingCategory);
-    abilities.push({ id: abilityIdCounter++, aspect: pendingAspect, category: pendingCategory, type: pendingType, name });
+    abilities.push({ id: abilityIdCounter++, aspect: pendingAspect, category: pendingCategory, type: pendingType, name, potentialTag: pendingPotentialTag });
     pendingAspect = null;
     pendingCategory = null;
     pendingType = null;
+    pendingPotentialTag = null;
     renderAll();
   };
 }
@@ -880,6 +936,7 @@ function renderAbilityList() {
         <span class="tag ${catClass(a.category)}">${a.category}</span>
         <span class="tag">${a.aspect}</span>
         <span class="tag">${a.type}</span>
+        <span class="tag">${a.potentialTag}</span>
       </div>
     </div>
   `).join("");
@@ -974,194 +1031,156 @@ function renderPoolPicker() {
   });
 }
 
-/* ---------- Confluence board: center + 3 triangle paths ----------
-   Per Polak's board-layout spec: 3 paths radiate from a shared center, tracing an
-   invisible equilateral triangle. Center = 1 shared Vocation node. Each path's 4th node is also a
-   Vocation node. Path ends get 1-2 extra "border" nodes ("if that makes sense" — Polak's own
-   phrasing) — implemented here as 2 regular (non-Vocation) offshoot nodes, flagged as an assumption
-   pending his confirm. Only Vocation nodes are placeable; everything else is a passive/decorative
-   node you snake past, per the confirmed "Vocations only go in Vocation nodes" rule. */
-const RADIUS_STEP = 44;
-const BORDER_EXTRA = 2; // Polak said "1 or 2" -- using 2 here, flagged as an assumption
+/* ---------- Confluence circles: 5 overlapping rings ----------
+   Per Polak's 2026-09-21 spec (§25-27 in the design doc): the triangular board is fully replaced.
+   5 starting rings — the 2 Potentials + Combat/Support/Utility — each sized (ring-count = number of
+   candidate nodes) by the player's investment. Arranged in a fixed pentagon so each ring only ever
+   overlaps its two neighbors (no 3+-way overlaps, equidistant spacing — his own stated preference,
+   "everything up for discussion" but locked as the v0 starting rule). Each ring's nodes are evenly
+   spaced around it (decided); rotating a ring snaps between fixed positions (decided), changing
+   which node from that ring lines up at each of its two intersections with its neighbors.
+   ASSUMPTION, not yet spec'd by Polak: where Vocations actually go on this new board. Reusing the
+   old board's "Vocation nodes are placeable, Vocations only go in a placeable slot" rule and
+   treating each of the 5 intersections as that placeable slot — flagged here and in the README as
+   an interpretation pending his confirm, not a locked answer. */
+const RING_LAYOUT_RADIUS = 70; // distance from the shared center to each ring's own center
+const RING_BASE_R = 26;        // ring radius at count = 0
+const RING_PER_COUNT_R = 5;    // extra ring radius per point of investment — tuned so even a
+                                // maxed-out ring (radius ~51 at count 5) stays well under the
+                                // ~133px two-hops-away center distance, keeping overlaps strictly
+                                // pairwise (no 3+-way overlap) at any realistic investment count.
+                                // The intersection marker is placed at the pentagon-edge midpoint
+                                // regardless of whether the drawn circles visually touch at low
+                                // investment — a symbolic "this pairing exists" marker, since exact
+                                // overlap geometry wasn't part of what Polak specified.
 
-function buildBoardLayout() {
-  const combat = categoryCount("Combat");
-  const support = categoryCount("Support");
-  const utility = categoryCount("Utility");
-  const paths = [
-    { key: "cu", label: "Combat + Utility", weight: combat + utility, angleDeg: -90 },
-    { key: "cs", label: "Combat + Support", weight: combat + support, angleDeg: 30 },
-    { key: "su", label: "Support + Utility", weight: support + utility, angleDeg: 150 },
+// Small placeholder word bank for the node labels revealed at each intersection — purely cosmetic,
+// swap freely. Deterministic (via pickDeterministic/hashStr, already defined above) so a given
+// ring/slot always shows the same label rather than re-rolling every render.
+const NODE_WORDS = ["Awesome", "Calm", "Insight", "Resolve", "Ember", "Tide", "Grit", "Focus", "Echo", "Drift"];
+function nodeLabelFor(ringId, slotIndex) {
+  const word = pickDeterministic(NODE_WORDS, `${ringId}::${slotIndex}`);
+  const amount = 1 + (hashStr(`${ringId}::${slotIndex}::amt`) % 3); // +1..+3, cosmetic
+  return `+${amount} ${word}`;
+}
+
+// Persistent per-ring rotation state (survives re-renders; reset alongside abilities/board).
+let ringRotation = { potential1: 0, potential2: 0, combat: 0, support: 0, utility: 0 };
+
+function buildRings() {
+  const defs = [
+    { id: "potential1", label: lockedPotentials[0], count: potentialCount(lockedPotentials[0]), colorVar: "--potential1" },
+    { id: "combat", label: "Combat", count: categoryCount("Combat"), colorVar: "--combat" },
+    { id: "support", label: "Support", count: categoryCount("Support"), colorVar: "--support" },
+    { id: "utility", label: "Utility", count: categoryCount("Utility"), colorVar: "--utility" },
+    { id: "potential2", label: lockedPotentials[1], count: potentialCount(lockedPotentials[1]), colorVar: "--potential2" },
   ];
+  // Pentagon layout, evenly spaced (equidistant) so each ring only ever touches its two immediate
+  // neighbors in this list order — that's what keeps intersections strictly pairwise.
+  const n = defs.length;
+  defs.forEach((d, i) => {
+    const angle = (-90 + (360 / n) * i) * Math.PI / 180;
+    d.cx = Math.cos(angle) * RING_LAYOUT_RADIUS;
+    d.cy = Math.sin(angle) * RING_LAYOUT_RADIUS;
+    d.r = RING_BASE_R + Math.max(d.count, 1) * RING_PER_COUNT_R;
+    d.slots = Math.max(d.count, 1);
+    if (ringRotation[d.id] >= d.slots) ringRotation[d.id] = 0; // clamp if count shrank
+  });
+  return defs;
+}
 
-  const nodes = [{ id: "center", x: 0, y: 0, type: "vocation" }];
-  const edges = [];
+function renderConfluence() {
+  const el = document.getElementById("board");
+  const rings = buildRings();
+  const ringById = Object.fromEntries(rings.map(r => [r.id, r]));
 
-  paths.forEach(path => {
-    const mainLen = Math.max(5, path.weight); // long enough to include the 4th-node Vocation node
-    path.mainLen = mainLen; // stash for pathSequence()
-    const rad = (path.angleDeg * Math.PI) / 180;
-    const dx = Math.cos(rad), dy = Math.sin(rad);
-    let prevId = "center";
-    let lastX = 0, lastY = 0;
-    for (let i = 1; i <= mainLen; i++) {
-      const id = `${path.key}-${i}`;
-      const x = dx * RADIUS_STEP * i;
-      const y = dy * RADIUS_STEP * i;
-      nodes.push({ id, x, y, type: i === 4 ? "vocation" : "regular", pathKey: path.key, posIndex: i });
-      edges.push([prevId, id]);
-      prevId = id;
-      lastX = x; lastY = y;
-    }
-    const perpRad = rad + Math.PI / 2;
-    const pdx = Math.cos(perpRad), pdy = Math.sin(perpRad);
-    let prevBorderId = prevId;
-    for (let b = 1; b <= BORDER_EXTRA; b++) {
-      const id = `${path.key}-border-${b}`;
-      const x = lastX + pdx * RADIUS_STEP * 0.55 * b;
-      const y = lastY + pdy * RADIUS_STEP * 0.55 * b;
-      nodes.push({ id, x, y, type: "regular", pathKey: path.key, isBorder: true });
-      edges.push([prevBorderId, id]);
-      prevBorderId = id;
-    }
+  // 5 pairwise wedges — each adjacent pair in the pentagon (a closed loop of 5).
+  const wedges = rings.map((r, i) => {
+    const next = rings[(i + 1) % rings.length];
+    const wedgeId = `${r.id}__${next.id}`;
+    const wx = (r.cx + next.cx) / 2, wy = (r.cy + next.cy) / 2;
+    const slotA = ringRotation[r.id] % r.slots;
+    const slotB = ringRotation[next.id] % next.slots;
+    return {
+      id: wedgeId, x: wx, y: wy,
+      labelA: nodeLabelFor(r.id, slotA), labelB: nodeLabelFor(next.id, slotB),
+    };
   });
 
-  return { nodes, edges, paths };
-}
-
-// The ordered id sequence for one path, center-out: center, then main nodes 1..mainLen, then the
-// border offshoot. Per Polak's item-7 feedback: a node further down the path should only unlock
-// once every node before it (back to center) is filled — this is what makes that sequence walkable.
-function pathSequence(path) {
-  const seq = ["center"];
-  for (let i = 1; i <= path.mainLen; i++) seq.push(`${path.key}-${i}`);
-  for (let b = 1; b <= BORDER_EXTRA; b++) seq.push(`${path.key}-border-${b}`);
-  return seq;
-}
-
-// Walks a path from center outward: `validIds` is the unbroken filled prefix, `nextId` is the one
-// node that's legitimately unlockable right now, and any filled node AFTER a gap is "broken" —
-// orphaned by a since-removed node earlier on the path.
-function computeChain(path, placedMap) {
-  const seq = pathSequence(path);
-  let validCount = 0;
-  while (validCount < seq.length && placedMap[seq[validCount]]) validCount++;
-  const validIds = new Set(seq.slice(0, validCount));
-  const brokenIds = new Set(seq.slice(validCount).filter(id => placedMap[id]));
-  const nextId = validCount < seq.length ? seq[validCount] : null;
-  return { validIds, brokenIds, nextId };
-}
-
-function renderBoard() {
-  const el = document.getElementById("board");
-  const { nodes, edges, paths } = buildBoardLayout();
-
-  const placedMap = {}; // nodeId -> placementOrder entry {nodeId, type, vocationKey?, aspect?, category?}
+  const placedMap = {}; // wedgeId -> placementOrder entry
   placementOrder.forEach(p => { placedMap[p.nodeId] = p; });
 
-  const chains = {};
-  paths.forEach(path => { chains[path.key] = computeChain(path, placedMap); });
-  let brokenCount = 0;
-  Object.values(chains).forEach(c => { brokenCount += c.brokenIds.size; });
-
-  function status(n) {
-    const placed = placedMap[n.id];
-    if (n.id === "center") {
-      if (placed) return "filled-vocation";
-      return selectedVocationKey ? "available" : "locked-vocation";
-    }
-    const chain = chains[n.pathKey];
-    if (placed) {
-      if (chain.brokenIds.has(n.id)) return "broken";
-      return n.type === "vocation" ? "filled-vocation" : "filled-regular";
-    }
-    if (chain.nextId === n.id) {
-      if (n.type === "vocation") return selectedVocationKey ? "available" : "locked-vocation";
-      return "available"; // next regular node on the path — just needs a click, no Vocation
-    }
-    return n.type === "vocation" ? "locked-vocation" : (n.isBorder ? "border-node" : "regular-node");
-  }
-
-  const xs = nodes.map(n => n.x), ys = nodes.map(n => n.y);
-  const pad = 24;
+  const xs = rings.flatMap(r => [r.cx - r.r, r.cx + r.r]);
+  const ys = rings.flatMap(r => [r.cy - r.r, r.cy + r.r]);
+  const pad = 20;
   const minX = Math.min(...xs) - pad, maxX = Math.max(...xs) + pad;
   const minY = Math.min(...ys) - pad, maxY = Math.max(...ys) + pad;
   const w = maxX - minX, h = maxY - minY;
 
-  const edgeLines = edges.map(([a, b]) => {
-    const na = nodes.find(n => n.id === a), nb = nodes.find(n => n.id === b);
-    return `<line x1="${na.x - minX}" y1="${na.y - minY}" x2="${nb.x - minX}" y2="${nb.y - minY}" stroke="var(--border)" stroke-width="2" />`;
-  }).join("");
+  const ringShapes = rings.map(r => `
+    <circle class="ring" cx="${r.cx - minX}" cy="${r.cy - minY}" r="${r.r}" stroke="var(${r.colorVar})" />
+    <text class="ring-label" x="${r.cx - minX}" y="${r.cy - minY - r.r - 6}" fill="var(${r.colorVar})">${r.label}</text>
+    <text class="ring-count" x="${r.cx - minX}" y="${r.cy - minY - r.r + 6}" fill="var(${r.colorVar})">${r.count} invested</text>
+  `).join("");
 
-  const nodeShapes = nodes.map(n => {
-    const placed = placedMap[n.id];
-    const st = status(n);
-    const r = n.id === "center" ? 18 : (n.type === "vocation" ? 14 : (n.isBorder ? 6 : 9));
-    let cls = `board-node ${st}`;
-    if (st === "filled-vocation" && placed.category) cls += ` cat-${catClass(placed.category)}`;
-    const label = st === "filled-vocation" ? placed.aspect.slice(0, 3)
-      : st === "broken" ? "!"
-      : (n.type === "vocation" ? "★" : "");
-    const clickable = st === "available" || st === "filled-vocation" || st === "filled-regular" || st === "broken";
+  const wedgeShapes = wedges.map(wg => {
+    const placed = placedMap[wg.id];
+    const filled = !!placed;
+    const cls = `wedge ${filled ? "filled" : (selectedVocationKey ? "placeable" : "")}${filled && placed.category ? ` cat-${catClass(placed.category)}` : ""}`;
+    const label = filled ? placed.aspect.slice(0, 3) : "?";
     return `
-      <g class="${cls}" data-node="${n.id}" data-type="${n.type}" data-clickable="${clickable}">
-        <circle cx="${n.x - minX}" cy="${n.y - minY}" r="${r}" />
-        ${label ? `<text x="${n.x - minX}" y="${n.y - minY}" dy="0.32em" text-anchor="middle">${label}</text>` : ""}
+      <g class="${cls}" data-wedge="${wg.id}">
+        <circle cx="${wg.x - minX}" cy="${wg.y - minY}" r="13" />
+        <text x="${wg.x - minX}" y="${wg.y - minY}" dy="0.32em">${label}</text>
       </g>
     `;
   }).join("");
 
   el.innerHTML = `
-    ${brokenCount > 0 ? `
-      <div class="hint" style="color: var(--combat); margin-bottom:8px;">
-        ⚠ ${brokenCount} node${brokenCount > 1 ? "s are" : " is"} cut off from the path (an earlier
-        node was removed). Remove the orphaned node(s) marked "!", or refill the gap to reconnect them.
-        <button class="secondary" id="clear-broken-btn" style="margin-left:6px;">Clear broken nodes</button>
-      </div>
-    ` : ""}
-    <svg class="board-svg" viewBox="0 0 ${w} ${h}" style="width:100%; max-width:480px; height:auto; display:block; margin:0 auto;">
-      ${edgeLines}
-      ${nodeShapes}
+    <svg class="confluence-svg" viewBox="0 0 ${w} ${h}" style="width:100%; max-width:480px; height:auto; display:block; margin:0 auto;">
+      ${ringShapes}
+      ${wedgeShapes}
     </svg>
-    <div class="board-legend">
-      ${paths.map(p => `<span>${p.label} (${p.weight} abilities)</span>`).join("")}
+    <div id="ring-controls-list" style="margin-top:10px;"></div>
+    <div class="hint" style="margin-top:8px;">
+      ${wedges.map(wg => `${wg.labelA} + ${wg.labelB}`).join(" · ")}
     </div>
   `;
 
-  const clearBtn = document.getElementById("clear-broken-btn");
-  if (clearBtn) {
-    clearBtn.onclick = () => {
-      const allBroken = new Set();
-      Object.values(chains).forEach(c => c.brokenIds.forEach(id => allBroken.add(id)));
-      placementOrder = placementOrder.filter(p => !allBroken.has(p.nodeId));
+  // Per-ring rotate controls — snaps between fixed node positions (decided, not free drag).
+  const controlsEl = document.getElementById("ring-controls-list");
+  controlsEl.innerHTML = rings.map(r => `
+    <div class="ring-controls">
+      <span><span class="swatch" style="background:var(${r.colorVar})"></span>${r.label} (${r.slots} node${r.slots > 1 ? "s" : ""})</span>
+      <span>
+        <button class="secondary" data-rotate="${r.id}" data-dir="-1">◀</button>
+        <button class="secondary" data-rotate="${r.id}" data-dir="1">▶</button>
+      </span>
+    </div>
+  `).join("");
+  controlsEl.querySelectorAll("[data-rotate]").forEach(btn => {
+    btn.onclick = () => {
+      const id = btn.dataset.rotate;
+      const dir = parseInt(btn.dataset.dir, 10);
+      const slots = ringById[id].slots;
+      ringRotation[id] = (ringRotation[id] + dir + slots) % slots;
       renderAll();
     };
-  }
+  });
 
-  el.querySelectorAll('[data-clickable="true"]').forEach(g => {
-    g.style.cursor = "pointer";
+  el.querySelectorAll(".wedge").forEach(g => {
     g.onclick = () => {
-      const nodeId = g.dataset.node;
-      const st = g.className.baseVal.split(" ")[1];
-
-      // Any filled or broken node can be removed directly — not just the most recent placement.
-      if (st === "filled-vocation" || st === "filled-regular" || st === "broken") {
-        placementOrder = placementOrder.filter(p => p.nodeId !== nodeId);
+      const wedgeId = g.dataset.wedge;
+      if (placedMap[wedgeId]) {
+        placementOrder = placementOrder.filter(p => p.nodeId !== wedgeId);
         renderAll();
         return;
       }
-
-      // Otherwise it's "available" — place on it.
-      const node = nodes.find(n => n.id === nodeId);
-      if (node.type === "vocation") {
-        if (!selectedVocationKey) return;
-        const voc = computeVocations().find(v => v.key === selectedVocationKey);
-        if (!voc) return;
-        placementOrder.push({ nodeId, type: "vocation", vocationKey: selectedVocationKey, aspect: voc.aspect, category: voc.category });
-        selectedVocationKey = null;
-      } else {
-        placementOrder.push({ nodeId, type: "regular" });
-      }
+      if (!selectedVocationKey) return;
+      const voc = computeVocations().find(v => v.key === selectedVocationKey);
+      if (!voc) return;
+      placementOrder.push({ nodeId: wedgeId, type: "vocation", vocationKey: selectedVocationKey, aspect: voc.aspect, category: voc.category });
+      selectedVocationKey = null;
       renderAll();
     };
   });
@@ -1179,7 +1198,7 @@ function renderAll() {
   renderAbilityList();
   renderVocations();
   renderPoolPicker();
-  renderBoard();
+  renderConfluence();
 }
 
 // "Login to finished Perpetual" completion state, per Polak's ask — a visible, testable endpoint
@@ -1190,12 +1209,13 @@ function renderPerpetualComplete() {
   if (abilities.length < 8) { el.innerHTML = ""; return; }
   const vocCount = computeVocations().length;
   const vocNodesFilled = placementOrder.filter(p => p.type === "vocation").length;
+  const splitText = lockedPotentials.map(p => `${p} ${potentialCount(p)}`).join(" / ");
   el.innerHTML = `
     <div class="completion-banner">
-      <div class="title">✓ Perpetual Complete — ${lockedPotentials.join(" + ")}</div>
+      <div class="title">✓ Perpetual Complete — ${lockedPotentials.join(" + ")} (${splitText})</div>
       <div class="stats">
-        8/8 Abilities crafted · ${vocCount} Vocations generated · ${vocNodesFilled}/4 Vocation nodes
-        placed on the Confluence Board
+        8/8 Abilities crafted · ${vocCount} Vocations generated · ${vocNodesFilled}/5 intersections
+        filled on the Confluence (circles)
       </div>
     </div>
   `;
@@ -1207,9 +1227,11 @@ document.getElementById("reset-btn").onclick = () => {
   pendingAspect = null;
   pendingCategory = null;
   pendingType = null;
+  pendingPotentialTag = null;
   selectedVocationKey = null;
   placementOrder = [];
   prevVocationKeys = new Set();
+  ringRotation = { potential1: 0, potential2: 0, combat: 0, support: 0, utility: 0 };
   renderAll();
 };
 
