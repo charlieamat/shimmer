@@ -76,6 +76,31 @@ First step toward the "login to finished Perpetual" scope Polak asked for:
   Potentials thematically working across every ability is a content question, not a UI one — it'll
   become visible once real Potential names and more Aspect-effect content exist (see vault §18, §23).
 
+### Confluence: second interaction mode, drag/arrange (2026-09-21)
+
+Charlie's own re-read of Polak's ring description after seeing the first build: "It's more that
+the rings get dragged and snapped into place over each other and that is what consumes or creates
+the slots (I think)." That's a materially different mechanic from the rotate-in-place version
+below — so rather than guess and rebuild over it, **both are now live side by side** via a mode
+toggle at the top of the Confluence panel, so Polak can compare and pick:
+
+- **Rotate rings (fixed pentagon)** — the original build (see below): rings sit in fixed spots,
+  rotating one changes which of its nodes lines up at its two fixed intersections.
+- **Drag rings (rearrange), new:** the 5 rings sit among 7 fixed anchor spots (1 center + 6 around
+  it, hex-flower layout, 2 spots always open for maneuvering room). Click a ring to pick it up,
+  click an anchor to drop it there (swapping if occupied). An intersection only exists where two
+  *adjacent* anchors both currently hold a ring — moving a ring is literally what creates or
+  destroys that slot, matching Charlie's "consumes or creates" phrasing. No rotation control in
+  this mode; position is the whole mechanic. Moving a ring out of an intersection auto-clears any
+  Vocation placed there, same "consequence for pulling out" feel as the old board's broken-chain
+  behavior.
+- **Still the same open question as below:** where Vocations attach is a working assumption either
+  way (intersections = placeable slots), not confirmed by Polak.
+- Verified via Playwright: toggle switches cleanly between modes without disturbing the other's
+  state; rings can be picked up and moved/swapped between anchors; intersections activate only when
+  both adjacent anchors are occupied; moving a ring away from an intersection prunes any Vocation
+  placed there; the original rotate mode still works unchanged after switching back to it.
+
 ### Confluence rebuild + Potential split (2026-09-21)
 
 Two pieces, both from Polak's latest round (design doc §25-27):

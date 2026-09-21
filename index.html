@@ -254,6 +254,24 @@
   }
   .ring-controls button { padding: 2px 8px; font-size: 11px; }
   .ring-controls .swatch { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 4px; }
+
+  /* --- Confluence mode toggle + drag-mode anchors --- */
+  #confluence-mode-toggle { display: flex; gap: 6px; flex-wrap: wrap; }
+  #confluence-mode-toggle button.active-mode {
+    background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 700;
+  }
+  .confluence-svg .drag-anchor-empty {
+    fill: transparent; stroke: var(--border); stroke-width: 1.5;
+  }
+  .confluence-svg .drag-anchor-empty.placeable {
+    stroke: var(--accent); cursor: pointer; animation: pulse-node 1.4s ease-in-out infinite;
+  }
+  .confluence-svg .drag-ring { cursor: pointer; }
+  .confluence-svg .drag-ring circle { pointer-events: all; } /* fill:none from .ring would otherwise
+    make only the stroke line itself clickable, not the ring's interior */
+  .confluence-svg .drag-ring.selected circle:first-child {
+    stroke-width: 3.5; filter: drop-shadow(0 0 4px var(--accent));
+  }
   .board-legend { display: flex; gap: 14px; justify-content: center; margin-top: 10px; font-size: 11px; color: var(--muted); flex-wrap: wrap; }
 
   .pool-item {
@@ -374,11 +392,16 @@
     <h2>3. Confluence (circles)</h2>
     <div class="hint" style="margin-bottom:10px;">
       5 rings — 2 Potentials + Combat/Support/Utility — sized by how much you invested in each.
-      Each ring has evenly-spaced nodes around it; use ◀ ▶ to rotate a ring and change which node
-      lines up at its two intersections with its neighbors. Select a Vocation below, then click a
-      lit-up intersection to place it there; click a filled intersection to remove it. Rune Words /
-      additional circles are still out of scope for v0, same as the old board.
+      Two ways to interact with them are shown here side by side so Polak can pick one — his
+      Discord description was read two ways, and rather than guess we're keeping both live.
+      <b>Rotate rings:</b> fixed pentagon layout, ◀ ▶ rotates a ring in place to change which node
+      lines up at its two intersections. <b>Drag rings:</b> the rings themselves move between anchor
+      spots on a hex layout — overlapping (adjacent) rings is what creates an intersection slot at
+      all. Select a Vocation below, then click a lit-up intersection to place it there; click a
+      filled intersection to remove it. Rune Words / additional circles are still out of scope for
+      v0, same as the old board.
     </div>
+    <div id="confluence-mode-toggle" style="margin-bottom:10px;"></div>
     <div id="pool-picker" style="margin-bottom:10px;"></div>
     <button class="secondary" id="undo-btn" style="margin-bottom:12px;">Undo last placement</button>
     <div id="board"></div>
@@ -722,6 +745,11 @@ function renderPotentialStep() {
       placementOrder = [];
       prevVocationKeys = new Set();
       ringRotation = { potential1: 0, potential2: 0, combat: 0, support: 0, utility: 0 };
+      dragAssignment = {
+        center: "potential1", outer0: "potential2", outer1: "combat", outer2: "support", outer3: "utility",
+        outer4: null, outer5: null,
+      };
+      selectedDragRing = null;
       renderAll();
     };
     return;
@@ -1089,7 +1117,7 @@ function buildRings() {
   return defs;
 }
 
-function renderConfluence() {
+function renderConfluenceRotate() {
   const el = document.getElementById("board");
   const rings = buildRings();
   const ringById = Object.fromEntries(rings.map(r => [r.id, r]));
@@ -1186,6 +1214,178 @@ function renderConfluence() {
   });
 }
 
+/* ---------- Confluence, mode B: drag/arrange ----------
+   Per Charlie's own tentative read of Polak's message ("It's more that the rings get dragged and
+   snapped into place over each other and that is what consumes or creates the slots"): a second,
+   materially different interaction model, kept ALONGSIDE the rotate version above (not replacing
+   it) via the mode toggle below, so both can be shown to Polak side by side. Fairly-confident read,
+   not confirmed — same "flag it, don't silently decide" treatment as the rotate version's own open
+   question about where Vocations attach.
+   Mechanic here: 7 fixed anchor spots (1 center + 6 in a hex ring around it), 5 rings to place among
+   them (2 empty spots at any time for maneuvering room). Click a ring to pick it up, click an anchor
+   to drop it there (swapping if occupied). Two anchors are "adjacent" per a fixed hex-flower graph
+   (center↔each outer, and each outer↔its two neighbors); an intersection only exists where BOTH
+   adjacent anchors currently hold a ring — moving a ring is literally what creates or destroys that
+   slot, matching Charlie's "consumes or creates" phrasing. No rotation dials in this mode — position
+   is the whole mechanic. */
+const DRAG_ANCHOR_DEFS = (() => {
+  const R = 62;
+  const outer = [0, 1, 2, 3, 4, 5].map(i => {
+    const angle = (-90 + 60 * i) * Math.PI / 180;
+    return { id: `outer${i}`, cx: Math.cos(angle) * R, cy: Math.sin(angle) * R };
+  });
+  return [{ id: "center", cx: 0, cy: 0 }, ...outer];
+})();
+const DRAG_ANCHOR_ADJACENCY = (() => {
+  const edges = [];
+  for (let i = 0; i < 6; i++) edges.push(["center", `outer${i}`]);
+  for (let i = 0; i < 6; i++) edges.push([`outer${i}`, `outer${(i + 1) % 6}`]);
+  return edges;
+})();
+
+// Starting layout: 5 rings placed, 2 outer spots left empty for maneuvering.
+let dragAssignment = {
+  center: "potential1", outer0: "potential2", outer1: "combat", outer2: "support", outer3: "utility",
+  outer4: null, outer5: null,
+};
+let selectedDragRing = null; // ring id currently "picked up", or null
+
+function renderConfluenceDrag() {
+  const el = document.getElementById("board");
+  const ringDefsById = Object.fromEntries(buildRings().map(r => [r.id, r])); // reuse label/count/r/colorVar only
+
+  const anchorRing = {};
+  DRAG_ANCHOR_DEFS.forEach(a => { anchorRing[a.id] = dragAssignment[a.id] ? ringDefsById[dragAssignment[a.id]] : null; });
+
+  // An intersection exists only where both adjacent anchors are currently occupied.
+  const activeEdges = DRAG_ANCHOR_ADJACENCY
+    .filter(([a, b]) => anchorRing[a] && anchorRing[b])
+    .map(([a, b]) => {
+      const idA = dragAssignment[a], idB = dragAssignment[b];
+      const sorted = [idA, idB].sort();
+      const anchorA = DRAG_ANCHOR_DEFS.find(x => x.id === a), anchorB = DRAG_ANCHOR_DEFS.find(x => x.id === b);
+      return {
+        id: `drag__${sorted[0]}__${sorted[1]}`,
+        x: (anchorA.cx + anchorB.cx) / 2, y: (anchorA.cy + anchorB.cy) / 2,
+        labelA: nodeLabelFor(idA, 0), labelB: nodeLabelFor(idB, 0),
+      };
+    });
+
+  // Moving a ring out of adjacency is what "consumes" the slot — clear any placement that no
+  // longer has a live intersection behind it.
+  const activeIds = new Set(activeEdges.map(w => w.id));
+  placementOrder = placementOrder.filter(p => !p.nodeId.startsWith("drag__") || activeIds.has(p.nodeId));
+
+  const placedMap = {};
+  placementOrder.forEach(p => { if (p.nodeId.startsWith("drag__")) placedMap[p.nodeId] = p; });
+
+  const xs = DRAG_ANCHOR_DEFS.flatMap(a => { const r = (anchorRing[a.id] && anchorRing[a.id].r) || 18; return [a.cx - r, a.cx + r]; });
+  const ys = DRAG_ANCHOR_DEFS.flatMap(a => { const r = (anchorRing[a.id] && anchorRing[a.id].r) || 18; return [a.cy - r, a.cy + r]; });
+  const pad = 24;
+  const minX = Math.min(...xs) - pad, maxX = Math.max(...xs) + pad;
+  const minY = Math.min(...ys) - pad, maxY = Math.max(...ys) + pad;
+  const w = maxX - minX, h = maxY - minY;
+
+  const anchorShapes = DRAG_ANCHOR_DEFS.map(a => {
+    const ring = anchorRing[a.id];
+    if (!ring) {
+      const cls = `drag-anchor-empty${selectedDragRing ? " placeable" : ""}`;
+      return `<circle class="${cls}" data-anchor="${a.id}" cx="${a.cx - minX}" cy="${a.cy - minY}" r="18" />`;
+    }
+    const selected = selectedDragRing === ring.id;
+    return `
+      <g class="drag-ring${selected ? " selected" : ""}" data-anchor="${a.id}">
+        <circle class="ring" cx="${a.cx - minX}" cy="${a.cy - minY}" r="${ring.r}" stroke="var(${ring.colorVar})" />
+        <text class="ring-label" x="${a.cx - minX}" y="${a.cy - minY - ring.r - 6}" fill="var(${ring.colorVar})">${ring.label}</text>
+        <text class="ring-count" x="${a.cx - minX}" y="${a.cy - minY - ring.r + 6}" fill="var(${ring.colorVar})">${ring.count} invested</text>
+      </g>
+    `;
+  }).join("");
+
+  const wedgeShapes = activeEdges.map(wg => {
+    const placed = placedMap[wg.id];
+    const filled = !!placed;
+    const cls = `wedge ${filled ? "filled" : (selectedVocationKey ? "placeable" : "")}${filled && placed.category ? ` cat-${catClass(placed.category)}` : ""}`;
+    const label = filled ? placed.aspect.slice(0, 3) : "?";
+    return `
+      <g class="${cls}" data-wedge="${wg.id}">
+        <circle cx="${wg.x - minX}" cy="${wg.y - minY}" r="13" />
+        <text x="${wg.x - minX}" y="${wg.y - minY}" dy="0.32em">${label}</text>
+      </g>
+    `;
+  }).join("");
+
+  el.innerHTML = `
+    <svg class="confluence-svg" viewBox="0 0 ${w} ${h}" style="width:100%; max-width:480px; height:auto; display:block; margin:0 auto;">
+      ${anchorShapes}
+      ${wedgeShapes}
+    </svg>
+    <div class="hint" style="margin-top:8px;">
+      ${selectedDragRing
+        ? `Moving <b>${ringDefsById[selectedDragRing].label}</b> — click an anchor spot to drop it there (click the ring again to cancel).`
+        : "Click a ring to pick it up, then click an anchor spot to move (or swap) it. Two rings on adjacent anchors open an intersection."}
+    </div>
+    <div class="hint" style="margin-top:6px;">
+      ${activeEdges.length ? activeEdges.map(wg => `${wg.labelA} + ${wg.labelB}`).join(" · ") : "No rings are adjacent yet — move two next to each other to open an intersection."}
+    </div>
+  `;
+
+  el.querySelectorAll("[data-anchor]").forEach(node => {
+    node.onclick = () => {
+      const anchorId = node.dataset.anchor;
+      const ringHere = dragAssignment[anchorId];
+      if (selectedDragRing) {
+        if (ringHere === selectedDragRing) { selectedDragRing = null; renderAll(); return; }
+        const fromAnchor = Object.keys(dragAssignment).find(k => dragAssignment[k] === selectedDragRing);
+        const displaced = dragAssignment[anchorId];
+        dragAssignment[fromAnchor] = displaced || null;
+        dragAssignment[anchorId] = selectedDragRing;
+        selectedDragRing = null;
+        renderAll();
+        return;
+      }
+      if (ringHere) { selectedDragRing = ringHere; renderAll(); }
+    };
+  });
+
+  el.querySelectorAll(".wedge").forEach(g => {
+    g.onclick = () => {
+      const wedgeId = g.dataset.wedge;
+      if (placedMap[wedgeId]) {
+        placementOrder = placementOrder.filter(p => p.nodeId !== wedgeId);
+        renderAll();
+        return;
+      }
+      if (!selectedVocationKey) return;
+      const voc = computeVocations().find(v => v.key === selectedVocationKey);
+      if (!voc) return;
+      placementOrder.push({ nodeId: wedgeId, type: "vocation", vocationKey: selectedVocationKey, aspect: voc.aspect, category: voc.category });
+      selectedVocationKey = null;
+      renderAll();
+    };
+  });
+}
+
+// Which Confluence interaction mode is currently shown — a demo toggle, not a real game setting.
+let confluenceMode = "rotate";
+
+function renderConfluence() {
+  const toggleEl = document.getElementById("confluence-mode-toggle");
+  toggleEl.innerHTML = `
+    <button class="secondary${confluenceMode === "rotate" ? " active-mode" : ""}" data-mode="rotate">Rotate rings (fixed pentagon)</button>
+    <button class="secondary${confluenceMode === "drag" ? " active-mode" : ""}" data-mode="drag">Drag rings (rearrange)</button>
+  `;
+  toggleEl.querySelectorAll("[data-mode]").forEach(btn => {
+    btn.onclick = () => {
+      confluenceMode = btn.dataset.mode;
+      selectedDragRing = null;
+      renderAll();
+    };
+  });
+  if (confluenceMode === "drag") renderConfluenceDrag();
+  else renderConfluenceRotate();
+}
+
 /* ---------- Orchestration ---------- */
 function renderAll() {
   renderPotentialStep();
@@ -1232,6 +1432,11 @@ document.getElementById("reset-btn").onclick = () => {
   placementOrder = [];
   prevVocationKeys = new Set();
   ringRotation = { potential1: 0, potential2: 0, combat: 0, support: 0, utility: 0 };
+  dragAssignment = {
+    center: "potential1", outer0: "potential2", outer1: "combat", outer2: "support", outer3: "utility",
+    outer4: null, outer5: null,
+  };
+  selectedDragRing = null;
   renderAll();
 };
 
