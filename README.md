@@ -76,6 +76,45 @@ First step toward the "login to finished Perpetual" scope Polak asked for:
   Potentials thematically working across every ability is a content question, not a UI one — it'll
   become visible once real Potential names and more Aspect-effect content exist (see vault §18, §23).
 
+### QA pass on the Confluence rebuild (2026-09-23)
+
+Polak's first real playtest of both Confluence modes, via DM (a batch of 11 numbered items). Nine
+were concrete and are fixed; two are flagged for discussion rather than guessed at — see the vault
+design doc §31 for the full breakdown. Also: he confirmed the board's biggest open question from the
+last round — **intersections as Vocation slots is the right read**, no longer just our assumption.
+
+Fixed:
+- **Vocation naming:** now shows the ability's own single Potential (e.g. "Earth"), not the blended
+  "Earth+Honor" left over from before the Potential split.
+- **Bonus Vocation numbering:** reads Base, 2, 3, 4 (Base occupies "1" conceptually) instead of
+  Base, 1, 2, 3.
+- **Ring investment text:** high-contrast with a background-colored halo instead of dim text in the
+  ring's own (sometimes hard-to-read) color.
+- **Removed the placeholder node-label line** at the bottom of the Confluence panel — cosmetic
+  filler text that read as gibberish, not real information.
+- **Empty rings no longer render:** a 4/4/0 Category split (or any 0-count Category) now shows only
+  the active rings — no more a 5th ring for a Category with nothing in it. Applies to both modes.
+- **"X/Y intersections filled" counter** added directly in the Confluence panel, matching the
+  existing 0/4 (Types) and 0/5 (Potentials) style elsewhere.
+- **Rings can no longer float alone in drag mode:** a move is blocked if it would leave any ring
+  (the one moved, or one displaced in a swap) with zero occupied neighbors — with the pentagon/hex
+  layouts here, that's reachable mainly with very few abilities crafted (sparse rings + a center
+  move), and is blocked with an inline warning rather than silently allowed.
+- **New ability-creation rule:** a (Category, Type) combo can be used at most once per Potential —
+  so at most 2 total across both Potentials, never the same Potential twice for the same combo. The
+  Type dropdown disables the option once it's taken for whichever Potential is currently selected.
+
+Flagged, not guessed at (see vault §31 for the full write-up):
+- **What happens when a drag-mode move unslots a placed Vocation** — right now it's silently
+  dropped ("sacrificed"); Polak's own message floated "moving out of the way" as an alternative.
+  Needs his call before building either direction.
+- **One item (his #6) we couldn't map to anything in the current build** — asked for clarification
+  rather than guessing which text he meant.
+
+Also delivered, not wired into the live prototype (exploratory, per his ask): three static sketches
+of concentric-ring layout options for representing more node-capacity without growing ring size —
+`concentric-ring-concepts.html`.
+
 ### Confluence: second interaction mode, drag/arrange (2026-09-21)
 
 Charlie's own re-read of Polak's ring description after seeing the first build: "It's more that

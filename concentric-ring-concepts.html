@@ -1,0 +1,70 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Confluence — concentric ring concepts (sketches)</title>
+<style>
+  body { background:#0d0d10; color:#eee; font-family: system-ui, sans-serif; padding: 24px; max-width: 1100px; margin: 0 auto; }
+  h1 { font-size: 18px; }
+  .note { color:#aaa; font-size: 13px; margin-bottom: 28px; line-height:1.5; }
+  .row { display:flex; gap:28px; flex-wrap:wrap; }
+  .card { background:#16161b; border:1px solid #2a2a33; border-radius:8px; padding:16px; flex:1; min-width:300px; }
+  .card h2 { font-size: 14px; margin: 0 0 4px; }
+  .card p { font-size: 12px; color:#aaa; margin: 0 0 12px; line-height:1.5; }
+  svg { width:100%; height:auto; display:block; }
+  .ring { fill:none; stroke-width:2; opacity:0.85; }
+  .node { fill:#0d0d10; }
+</style>
+</head>
+<body>
+<h1>Confluence board — concentric ring concepts (sketches, not wired into the prototype)</h1>
+<div class="note">
+  Per Polak's note ("Prototype, so ring size shouldn't change, but concentric OR multiple rings
+  added") — three rough ways to represent MORE than a handful of node-groups without inflating a
+  single ring's radius. These are static illustrations to react to, not functional builds — none of
+  the three is picked yet.
+</div>
+<div class="row">
+
+  <div class="card">
+    <h2>A — Concentric, going inward</h2>
+    <p>Each group is still one ring at a fixed size. As a category/Potential grows past its first
+    ring's capacity, additional rings nest INSIDE it, shrinking toward the center. Overlap logic
+    with neighbors stays on the outermost ring only.</p>
+    <svg viewBox="0 0 300 260">
+      <circle class="ring" cx="150" cy="130" r="90" stroke="#e08a3c"/>
+      <circle class="ring" cx="150" cy="130" r="66" stroke="#e08a3c"/>
+      <circle class="ring" cx="150" cy="130" r="42" stroke="#e08a3c"/>
+      <circle class="node" cx="150" cy="40" r="4"/><circle class="node" cx="150" cy="64" r="4"/><circle class="node" cx="150" cy="88" r="4"/>
+    </svg>
+  </div>
+
+  <div class="card">
+    <h2>B — Concentric, going outward</h2>
+    <p>Same idea, reversed: the first ring stays fixed-size at the group's "home" radius, and extra
+    rings for that same group ring OUTWARD from it as investment grows, pushing further from center.</p>
+    <svg viewBox="0 0 300 260">
+      <circle class="ring" cx="150" cy="130" r="42" stroke="#7fbf7f"/>
+      <circle class="ring" cx="150" cy="130" r="66" stroke="#7fbf7f"/>
+      <circle class="ring" cx="150" cy="130" r="90" stroke="#7fbf7f"/>
+      <circle class="node" cx="150" cy="220" r="4"/><circle class="node" cx="150" cy="196" r="4"/><circle class="node" cx="150" cy="172" r="4"/>
+    </svg>
+  </div>
+
+  <div class="card">
+    <h2>C — No concentric rings, just more of them</h2>
+    <p>No nesting at all — ring size never changes. Instead, once a group needs more capacity than
+    one ring holds, a whole SEPARATE flat ring is added to the pentagon/hex layout alongside the
+    others, overlapping its own neighbors independently (same rule as today's 5-ring layout, just
+    with more than 5 rings in play).</p>
+    <svg viewBox="0 0 300 260">
+      <circle class="ring" cx="110" cy="90" r="46" stroke="#7f9fd6"/>
+      <circle class="ring" cx="170" cy="120" r="46" stroke="#7f9fd6"/>
+      <circle class="ring" cx="150" cy="180" r="46" stroke="#d68fd6"/>
+      <circle class="ring" cx="90" cy="170" r="46" stroke="#d68fd6"/>
+    </svg>
+  </div>
+
+</div>
+</body>
+</html>

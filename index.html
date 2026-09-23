@@ -222,7 +222,18 @@
     opacity: 0.75;
   }
   .confluence-svg .ring-label { font-size: 10px; font-weight: 700; text-anchor: middle; }
-  .confluence-svg .ring-count { font-size: 9px; text-anchor: middle; opacity: 0.7; }
+  .confluence-svg .ring-count {
+    font-size: 9px;
+    font-weight: 700;
+    text-anchor: middle;
+    fill: var(--text);
+    opacity: 1;
+    paint-order: stroke;
+    stroke: var(--bg);
+    stroke-width: 3px;
+    stroke-linejoin: round;
+  } /* per Polak's feedback: the old dim/colored text was hard to read against the ring's own
+       color — now high-contrast text with a background-colored halo so it reads on any ring */
   .confluence-svg .wedge circle {
     fill: var(--panel-2);
     stroke: var(--border);
@@ -614,6 +625,13 @@ let pendingPotentialTag = null; // which of the 2 locked Potentials this ability
 const MIN_PER_POTENTIAL = 3;
 const MAX_PER_POTENTIAL = 8 - MIN_PER_POTENTIAL; // 5 — leaves room for the other side to hit the minimum
 function potentialCount(p) { return abilities.filter(a => a.potentialTag === p).length; }
+// Per Polak's feedback: a (Category, Type) combo can be used at most once per Potential — so at most
+// 2 total (one under each Potential), never the same Potential twice. Example: Utility>Crowd
+// Control>Holy is used once; a second Utility>Crowd Control ability must be tagged Undying (the
+// other Potential), not Holy again, even with a different Aspect.
+function isCategoryTypePotentialUsed(category, type, potentialTag) {
+  return abilities.some(a => a.category === category && a.type === type && a.potentialTag === potentialTag);
+}
 let selectedVocationKey = null;   // Aspect currently selected for board placement
 let placementOrder = [];     // ordered list of {nodeId, vocationKey, aspect, category}, in placement order
 let prevVocationKeys = new Set(); // vocation keys from the previous render (for boost-flash detection)
@@ -668,6 +686,7 @@ function computeVocations() {
       aspect: a.aspect,
       category: a.category,
       deliveryType: a.type,
+      potentialTag: a.potentialTag,
       abilityId: a.id,
       kind: "base",
       level: 0,
@@ -681,9 +700,12 @@ function computeVocations() {
         aspect: a.aspect,
         category: a.category,
         deliveryType: b.type,
+        potentialTag: a.potentialTag,
         abilityId: a.id,
         kind: "bonus",
-        level: bonusLevel,
+        // Per Polak's feedback: Base already occupies "1" conceptually, so the first bonus should
+        // read as 2, not 1 (Base, 2, 3, 4 — not Base, 1, 2, 3).
+        level: bonusLevel + 1,
         viaAbility: b.name,
       });
     });
@@ -750,6 +772,7 @@ function renderPotentialStep() {
         outer4: null, outer5: null,
       };
       selectedDragRing = null;
+      dragMoveWarning = null;
       renderAll();
     };
     return;
@@ -854,6 +877,11 @@ function renderBuilder() {
   if (pendingPotentialTag && potentialCount(pendingPotentialTag) >= MAX_PER_POTENTIAL) {
     pendingPotentialTag = null;
   }
+  // Per Polak's feedback: a (Category, Type) combo can be used at most once per Potential — so if
+  // the pending Type is already taken for the currently-pending Potential, drop it too.
+  if (pendingType && pendingPotentialTag && isCategoryTypePotentialUsed(pendingCategory, pendingType, pendingPotentialTag)) {
+    pendingType = null;
+  }
   const typeOptions = pendingCategory ? DELIVERY_TYPES[pendingCategory] : [];
 
   const basePreview = (pendingCategory && pendingType)
@@ -884,7 +912,10 @@ function renderBuilder() {
       </select>
       <select id="sel-type" ${pendingCategory ? "" : "disabled"}>
         <option value="" ${!pendingType ? "selected" : ""}>${pendingCategory ? "— choose Type —" : "— pick a Category first —"}</option>
-        ${typeOptions.map(t => `<option value="${t}" ${t === pendingType ? "selected" : ""}>${t}</option>`).join("")}
+        ${typeOptions.map(t => {
+          const usedForThisPotential = pendingPotentialTag && isCategoryTypePotentialUsed(pendingCategory, t, pendingPotentialTag);
+          return `<option value="${t}" ${usedForThisPotential ? "disabled" : ""} ${t === pendingType ? "selected" : ""}>${t}${usedForThisPotential ? ` (already used for ${pendingPotentialTag})` : ""}</option>`;
+        }).join("")}
       </select>
     </div>
     <div class="preview-row">
@@ -939,6 +970,7 @@ function renderCreateRow() {
     if (!canCreate) return;
     if (categoryCount(pendingCategory) >= MAX_PER_CATEGORY) return;
     if (potentialCount(pendingPotentialTag) >= MAX_PER_POTENTIAL) return;
+    if (isCategoryTypePotentialUsed(pendingCategory, pendingType, pendingPotentialTag)) return;
     const name = generateAbilityName(pendingAspect, pendingCategory);
     abilities.push({ id: abilityIdCounter++, aspect: pendingAspect, category: pendingCategory, type: pendingType, name, potentialTag: pendingPotentialTag });
     pendingAspect = null;
@@ -1011,7 +1043,7 @@ function renderVocations() {
     return `
       <div class="vocation-row ${catClass(v.category)} ${boosted ? "boosted" : ""}" data-aspect="${v.aspect}" data-key="${v.key}">
         <div>
-          <div><span class="icon">${CATEGORY_ICON[v.category]}</span> ${lockedPotentials.join("+")} · ${label}</div>
+          <div><span class="icon">${CATEGORY_ICON[v.category]}</span> ${v.potentialTag} · ${label}</div>
           <div class="formula">${formula}</div>
         </div>
         <div class="vocation-count">${v.kind === "base" ? "base" : "+" + v.level}</div>
@@ -1095,26 +1127,43 @@ function nodeLabelFor(ringId, slotIndex) {
 // Persistent per-ring rotation state (survives re-renders; reset alongside abilities/board).
 let ringRotation = { potential1: 0, potential2: 0, combat: 0, support: 0, utility: 0 };
 
+// buildRings() is the active-rings list, shared by both Confluence modes: per Polak's feedback, a
+// Category ring with 0 abilities in it (e.g. a 4/4/0 split) shouldn't be drawn or placeable at all —
+// only Potential rings (always >=3, never 0) and non-empty Category rings are "active". In rotate
+// mode this also fixes the "always at least 1 intersection" requirement for free, since the pentagon
+// layout below only ever cycles through however many rings are actually active. In drag mode, a ring
+// whose count drops to 0 simply stops resolving to anything at its old anchor (see renderConfluenceDrag)
+// and that anchor reads as empty again.
 function buildRings() {
-  const defs = [
+  const all = [
     { id: "potential1", label: lockedPotentials[0], count: potentialCount(lockedPotentials[0]), colorVar: "--potential1" },
     { id: "combat", label: "Combat", count: categoryCount("Combat"), colorVar: "--combat" },
     { id: "support", label: "Support", count: categoryCount("Support"), colorVar: "--support" },
     { id: "utility", label: "Utility", count: categoryCount("Utility"), colorVar: "--utility" },
     { id: "potential2", label: lockedPotentials[1], count: potentialCount(lockedPotentials[1]), colorVar: "--potential2" },
-  ];
-  // Pentagon layout, evenly spaced (equidistant) so each ring only ever touches its two immediate
-  // neighbors in this list order — that's what keeps intersections strictly pairwise.
+  ].map(d => ({ ...d, r: RING_BASE_R + Math.max(d.count, 1) * RING_PER_COUNT_R, slots: Math.max(d.count, 1) }));
+  const defs = all.filter(d => d.id === "potential1" || d.id === "potential2" || d.count > 0);
   const n = defs.length;
   defs.forEach((d, i) => {
     const angle = (-90 + (360 / n) * i) * Math.PI / 180;
     d.cx = Math.cos(angle) * RING_LAYOUT_RADIUS;
     d.cy = Math.sin(angle) * RING_LAYOUT_RADIUS;
-    d.r = RING_BASE_R + Math.max(d.count, 1) * RING_PER_COUNT_R;
-    d.slots = Math.max(d.count, 1);
     if (ringRotation[d.id] >= d.slots) ringRotation[d.id] = 0; // clamp if count shrank
   });
   return defs;
+}
+
+// Adjacent pairs for a ring layout of any size n (2..5) without double-counting the wrap edge when
+// n===2 (two rings only ever share the one edge between them, not two).
+function ringAdjacentPairs(rings) {
+  const n = rings.length;
+  const pairs = [];
+  for (let i = 0; i < n; i++) {
+    const j = i + 1 < n ? i + 1 : (n > 2 ? 0 : -1);
+    if (j === -1) continue;
+    pairs.push([rings[i], rings[j]]);
+  }
+  return pairs;
 }
 
 function renderConfluenceRotate() {
@@ -1122,9 +1171,8 @@ function renderConfluenceRotate() {
   const rings = buildRings();
   const ringById = Object.fromEntries(rings.map(r => [r.id, r]));
 
-  // 5 pairwise wedges — each adjacent pair in the pentagon (a closed loop of 5).
-  const wedges = rings.map((r, i) => {
-    const next = rings[(i + 1) % rings.length];
+  // Pairwise wedges — each adjacent pair in the (possibly-fewer-than-5) active ring layout.
+  const wedges = ringAdjacentPairs(rings).map(([r, next]) => {
     const wedgeId = `${r.id}__${next.id}`;
     const wx = (r.cx + next.cx) / 2, wy = (r.cy + next.cy) / 2;
     const slotA = ringRotation[r.id] % r.slots;
@@ -1148,7 +1196,7 @@ function renderConfluenceRotate() {
   const ringShapes = rings.map(r => `
     <circle class="ring" cx="${r.cx - minX}" cy="${r.cy - minY}" r="${r.r}" stroke="var(${r.colorVar})" />
     <text class="ring-label" x="${r.cx - minX}" y="${r.cy - minY - r.r - 6}" fill="var(${r.colorVar})">${r.label}</text>
-    <text class="ring-count" x="${r.cx - minX}" y="${r.cy - minY - r.r + 6}" fill="var(${r.colorVar})">${r.count} invested</text>
+    <text class="ring-count" x="${r.cx - minX}" y="${r.cy - minY - r.r + 6}">${r.count} invested</text>
   `).join("");
 
   const wedgeShapes = wedges.map(wg => {
@@ -1164,15 +1212,15 @@ function renderConfluenceRotate() {
     `;
   }).join("");
 
+  const filledCount = wedges.filter(wg => placedMap[wg.id]).length;
+
   el.innerHTML = `
+    <div class="hint" style="margin-bottom:6px;">${filledCount}/${wedges.length} intersections filled</div>
     <svg class="confluence-svg" viewBox="0 0 ${w} ${h}" style="width:100%; max-width:480px; height:auto; display:block; margin:0 auto;">
       ${ringShapes}
       ${wedgeShapes}
     </svg>
     <div id="ring-controls-list" style="margin-top:10px;"></div>
-    <div class="hint" style="margin-top:8px;">
-      ${wedges.map(wg => `${wg.labelA} + ${wg.labelB}`).join(" · ")}
-    </div>
   `;
 
   // Per-ring rotate controls — snaps between fixed node positions (decided, not free drag).
@@ -1249,6 +1297,13 @@ let dragAssignment = {
   outer4: null, outer5: null,
 };
 let selectedDragRing = null; // ring id currently "picked up", or null
+let dragMoveWarning = null; // set when a move was blocked, shown once then cleared on next action
+
+function anchorNeighbors(anchorId) {
+  return DRAG_ANCHOR_ADJACENCY
+    .filter(([a, b]) => a === anchorId || b === anchorId)
+    .map(([a, b]) => (a === anchorId ? b : a));
+}
 
 function renderConfluenceDrag() {
   const el = document.getElementById("board");
@@ -1297,7 +1352,7 @@ function renderConfluenceDrag() {
       <g class="drag-ring${selected ? " selected" : ""}" data-anchor="${a.id}">
         <circle class="ring" cx="${a.cx - minX}" cy="${a.cy - minY}" r="${ring.r}" stroke="var(${ring.colorVar})" />
         <text class="ring-label" x="${a.cx - minX}" y="${a.cy - minY - ring.r - 6}" fill="var(${ring.colorVar})">${ring.label}</text>
-        <text class="ring-count" x="${a.cx - minX}" y="${a.cy - minY - ring.r + 6}" fill="var(${ring.colorVar})">${ring.count} invested</text>
+        <text class="ring-count" x="${a.cx - minX}" y="${a.cy - minY - ring.r + 6}">${ring.count} invested</text>
       </g>
     `;
   }).join("");
@@ -1315,7 +1370,10 @@ function renderConfluenceDrag() {
     `;
   }).join("");
 
+  const filledDragCount = activeEdges.filter(wg => placedMap[wg.id]).length;
+
   el.innerHTML = `
+    <div class="hint" style="margin-bottom:6px;">${filledDragCount}/${activeEdges.length} intersections filled</div>
     <svg class="confluence-svg" viewBox="0 0 ${w} ${h}" style="width:100%; max-width:480px; height:auto; display:block; margin:0 auto;">
       ${anchorShapes}
       ${wedgeShapes}
@@ -1325,9 +1383,7 @@ function renderConfluenceDrag() {
         ? `Moving <b>${ringDefsById[selectedDragRing].label}</b> — click an anchor spot to drop it there (click the ring again to cancel).`
         : "Click a ring to pick it up, then click an anchor spot to move (or swap) it. Two rings on adjacent anchors open an intersection."}
     </div>
-    <div class="hint" style="margin-top:6px;">
-      ${activeEdges.length ? activeEdges.map(wg => `${wg.labelA} + ${wg.labelB}`).join(" · ") : "No rings are adjacent yet — move two next to each other to open an intersection."}
-    </div>
+    ${dragMoveWarning ? `<div class="hint" style="margin-top:6px; color: var(--accent);">${dragMoveWarning}</div>` : ""}
   `;
 
   el.querySelectorAll("[data-anchor]").forEach(node => {
@@ -1335,16 +1391,30 @@ function renderConfluenceDrag() {
       const anchorId = node.dataset.anchor;
       const ringHere = dragAssignment[anchorId];
       if (selectedDragRing) {
-        if (ringHere === selectedDragRing) { selectedDragRing = null; renderAll(); return; }
+        if (ringHere === selectedDragRing) { selectedDragRing = null; dragMoveWarning = null; renderAll(); return; }
         const fromAnchor = Object.keys(dragAssignment).find(k => dragAssignment[k] === selectedDragRing);
         const displaced = dragAssignment[anchorId];
-        dragAssignment[fromAnchor] = displaced || null;
-        dragAssignment[anchorId] = selectedDragRing;
+
+        // Per Polak's feedback: rings must never float alone — a move is only valid if BOTH the
+        // moved ring and any displaced ring (on a swap) still land next to at least one occupied
+        // neighbor afterward. Simulate the move first and check before committing it.
+        const simulated = { ...dragAssignment, [fromAnchor]: displaced || null, [anchorId]: selectedDragRing };
+        const isOccupied = id => id && simulated[id] && buildRings().some(r => r.id === simulated[id]);
+        const destOk = anchorNeighbors(anchorId).some(n => isOccupied(n));
+        const srcOk = !displaced || anchorNeighbors(fromAnchor).some(n => isOccupied(n));
+        if (!destOk || !srcOk) {
+          dragMoveWarning = "Can't move there — a ring would end up with no intersections. Rings must always touch at least one neighbor.";
+          renderAll();
+          return;
+        }
+
+        dragAssignment = simulated;
         selectedDragRing = null;
+        dragMoveWarning = null;
         renderAll();
         return;
       }
-      if (ringHere) { selectedDragRing = ringHere; renderAll(); }
+      if (ringHere) { selectedDragRing = ringHere; dragMoveWarning = null; renderAll(); }
     };
   });
 
@@ -1379,6 +1449,7 @@ function renderConfluence() {
     btn.onclick = () => {
       confluenceMode = btn.dataset.mode;
       selectedDragRing = null;
+      dragMoveWarning = null;
       renderAll();
     };
   });
@@ -1437,6 +1508,7 @@ document.getElementById("reset-btn").onclick = () => {
     outer4: null, outer5: null,
   };
   selectedDragRing = null;
+  dragMoveWarning = null;
   renderAll();
 };
 
