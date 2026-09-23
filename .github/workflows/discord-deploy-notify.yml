@@ -1,0 +1,39 @@
+name: Discord deployment notification
+
+# Fires on GitHub's built-in Pages deployment (the "Deploy from a branch" pipeline) -- no changes
+# needed to how Pages itself is configured. Posts a success/failure card to Discord via a webhook
+# stored as the DISCORD_WEBHOOK_URL repo secret (Settings > Secrets and variables > Actions).
+on:
+  deployment_status:
+
+jobs:
+  notify:
+    if: github.event.deployment_status.environment == 'github-pages'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify Discord
+        env:
+          WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          STATE: ${{ github.event.deployment_status.state }}
+          SHA: ${{ github.sha }}
+          TARGET_URL: ${{ github.event.deployment_status.environment_url }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ "$STATE" = "success" ]; then
+            COLOR=3066993
+            TITLE="✅ Shimmer deploy succeeded"
+          elif [ "$STATE" = "failure" ] || [ "$STATE" = "error" ]; then
+            COLOR=15158332
+            TITLE="❌ Shimmer deploy failed"
+          else
+            echo "Ignoring deployment_status state: $STATE"
+            exit 0
+          fi
+          SHORT_SHA=$(echo "$SHA" | cut -c1-7)
+          curl -s -H "Content-Type: application/json" -X POST "$WEBHOOK_URL" -d "{
+            \"embeds\": [{
+              \"title\": \"$TITLE\",
+              \"description\": \"Commit \`$SHORT_SHA\` -- [live site]($TARGET_URL) . [workflow run]($RUN_URL)\",
+              \"color\": $COLOR
+            }]
+          }"
